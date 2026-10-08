@@ -1,0 +1,52 @@
+# L5 Tracking hands-on. Every value here is a starting point, chosen for the
+# demo, not tuned to be best. Each one is named on a slide or in the README.
+
+detector:
+  ros__parameters:
+    lidar_topic: /carla/ego_vehicle/lidar
+    fixed_frame: map
+    ego_frame: ego_vehicle
+    ego_length: 4.8          # points inside the AV's footprint (plus 0.2 m) are dropped
+    ego_width: 2.2
+    ground_max_z: 0.3        # ground: below 0.3 m above the road
+    obstacle_max_z: 2.5      # above 2.5 m: trees, signs, bridges
+    max_range: 40.0          # m from the AV
+    cell_size: 0.4           # clustering grid, m; touching cells form one cluster
+    min_points: 5            # smaller clusters are dropped
+    max_extent: 7.0          # wider clusters (walls, buildings) are dropped, m
+    measurement_sigma: 0.5   # R = 0.5^2 I, m^2, on every detection
+
+truth_detector:
+  ros__parameters:
+    max_range: 40.0
+    publish_every: 2         # every 2nd tick of the bridge's 20 Hz: 10 Hz
+    noise_sigma: 0.3         # m, added to the true position in x and y
+    reported_sigma: -1.0     # < 0: the detections report R = noise_sigma^2 I
+    miss_prob: 0.1
+    clutter_rate: 0.5        # false detections per frame, on average
+    flip_prob: 0.0           # wrong class label; try 0.3 with reset_on_class_change
+    include_walkers: false
+    seed: 1
+
+tracker:
+  ros__parameters:
+    association: gnn         # gnn (Hungarian, lowest total) or nn (track by track)
+    nn_order: ascending      # nn only: lowest track ID chooses first; or descending
+    gate: 9.21               # epsilon = nu^T S^-1 nu; 99 % of chi-square, 2 dof
+    confirm_m: 3             # confirmed after 3 detections ...
+    confirm_n: 5             # ... in 5 frames
+    max_coast_time: 1.0      # s without a detection before a coasting track is deleted
+    init_vel_sigma: 5.0      # m/s: a new track knows nothing about its velocity
+    accel_sigma: 3.0         # m/s^2: Q, the random acceleration of the CV model
+    measurement_sigma: 0.5   # R when a detection carries none
+    cost: epsilon            # epsilon (the slides), or epsilon + ln|S| (see the README)
+    confirmed_first: true    # confirmed and coasting tracks choose first (see the README)
+    reset_on_class_change: false   # true: Tempe, a new class starts a new track
+    log_every: 50
+
+evaluate:
+  ros__parameters:
+    eval_range: 30.0         # objects within 30 m of the AV count
+    match_dist: 3.0          # a detection or track within 3 m of an object matches it
+    include_walkers: false
+    report_period: 10.0

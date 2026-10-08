@@ -1,0 +1,30 @@
+# L5 3D Detection hands-on. Every value is a starting point chosen for the demo.
+# Steps 1 to 3 (points, ground, clusters) use the same values as
+# l5_tracking_demo's detector, so the two packages see the same clusters.
+
+box_detector:
+  ros__parameters:
+    lidar_topic: /carla/ego_vehicle/lidar
+    output_topic: /l5/boxes
+    fixed_frame: map
+    ego_frame: ego_vehicle
+    ego_length: 4.8          # points inside the AV's footprint (plus 0.2 m) are dropped
+    ego_width: 2.2
+    ground_max_z: 0.3        # ground: below 0.3 m above the road
+    obstacle_max_z: 2.5      # above 2.5 m: trees, signs, bridges
+    max_range: 40.0          # m from the AV
+    cell_size: 0.4           # clustering grid, m; touching cells form one cluster
+    min_points: 5            # smaller clusters are dropped
+    max_extent: 7.0          # longer fitted boxes (walls, buildings) are dropped, m
+    measurement_sigma: 0.5   # R = 0.5^2 I, m^2, for the tracker
+    angle_step_deg: 1.0      # L-shape search step (Autoware's value)
+    d0: 0.1                  # closeness: smallest distance a point votes with, m (Autoware)
+    d_max: 0.4               # closeness: points farther from every edge do not vote, m (Autoware)
+    evaluate: false
+    eval_range: 30.0         # true vehicles within 30 m of the AV count
+    visible_min_points: 5    # a true vehicle is "visible" with 5 kept points in its box
+    include_parked: true     # parked cars built into the map count as truth
+    carla_host: localhost
+    carla_port: 2000
+    out: ""                  # evaluate: JSON report file
+    debug_every: 5           # publish /l5/boxes/debug every 5 sweeps (snapshot)

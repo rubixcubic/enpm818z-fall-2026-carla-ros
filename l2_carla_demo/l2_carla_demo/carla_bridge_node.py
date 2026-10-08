@@ -169,8 +169,15 @@ class CarlaBridge(Node):
         if self.vehicle is None:
             raise SystemExit("every spawn point on this map is occupied")
         self.actors.append(self.vehicle)
+        self.traffic_manager = None
         if self.get_parameter("autopilot").value:
-            self.vehicle.set_autopilot(True)
+            # The autopilot is CARLA's Traffic Manager. With the world in
+            # synchronous mode, the Traffic Manager must be synchronous too, or
+            # it may never issue a command: the vehicle then sits at its spawn
+            # point with autopilot "on". Seen here in 2 of 3 runs before this.
+            self.traffic_manager = self.client.get_trafficmanager()
+            self.traffic_manager.set_synchronous_mode(True)
+            self.vehicle.set_autopilot(True, self.traffic_manager.get_port())
 
         self.mounts = self._mounts(self.vehicle)
         # Rigid, always. SpringArm smooths the sensor's motion for video, which
@@ -319,6 +326,8 @@ class CarlaBridge(Node):
                 [carla.command.DestroyActor(a) for a in reversed(self.actors)])
             self.get_logger().info(f"destroyed {len(self.actors)} actors")
             self.actors.clear()
+        if self.traffic_manager is not None:
+            self.traffic_manager.set_synchronous_mode(False)
         if self.original_settings is not None:
             self.world.apply_settings(self.original_settings)
 

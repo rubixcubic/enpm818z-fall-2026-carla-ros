@@ -1,0 +1,37 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>l3_ekf_demo</name>
+  <version>1.0.0</version>
+  <description>
+    ENPM818Z Lecture 3 hands-on: fuse CARLA's GNSS and IMU with an EKF, and
+    log the NIS so the covariance can be checked rather than believed.
+    Consumes the sensor topics published by l2_carla_demo.
+  </description>
+  <maintainer email="zeidk@umd.edu">Zeid Kootbally</maintainer>
+  <license>MIT</license>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>python3-numpy</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>rviz2</exec_depend>
+
+  <!-- Ground truth comes straight from the simulator, so truth_node needs the
+       CARLA Python API. It is NOT a ROS package:  pip install carla==0.9.16
+       Nothing else in this package talks to CARLA; the filter only sees ROS
+       topics, exactly as it would on a vehicle. -->
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

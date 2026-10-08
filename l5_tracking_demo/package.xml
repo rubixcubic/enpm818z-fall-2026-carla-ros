@@ -1,0 +1,38 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>l5_tracking_demo</name>
+  <version>1.0.0</version>
+  <description>
+    ENPM818Z Lecture 5 hands-on, Tracking section: a multi-object tracker
+    with one constant-velocity Kalman filter per object, gating with the NIS,
+    GNN or NN association and the track lifecycle (tentative, confirmed,
+    coasting, deleted). Detections come from the L2 bridge's LiDAR, by
+    clustering, or from CARLA's ground truth with noise, misses, clutter and
+    class flips added. An evaluator grades both against CARLA's truth.
+  </description>
+  <maintainer email="zeidk@umd.edu">Zeid Kootbally</maintainer>
+  <license>MIT</license>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>builtin_interfaces</exec_depend>
+  <exec_depend>vision_msgs</exec_depend>
+  <exec_depend>visualization_msgs</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>python3-numpy</exec_depend>
+  <exec_depend>python3-scipy</exec_depend>
+  <exec_depend>python3-matplotlib</exec_depend>
+  <exec_depend>l2_carla_demo</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>rviz2</exec_depend>
+
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

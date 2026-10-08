@@ -1,0 +1,38 @@
+# One grid for all three bird's-eye views, so the three images line up cell for
+# cell. The same numbers go to every node through the '/**' wildcard.
+#
+#   cell (i, j):  i = floor((x + half_extent) / resolution)   along x, forward
+#                 j = floor((y + half_extent) / resolution)   along y, left
+#
+# That is the formula from the slide 'The BEV grid: from meters to a cell'.
+# BEVFormer used half_extent 51.2 m and resolution 0.512 m on nuScenes; these
+# are smaller so that Python keeps up at 10 Hz on a laptop.
+/**:
+  ros__parameters:
+    half_extent: 25.0      # m: the grid covers -25 m to +25 m in x and in y
+    resolution: 0.2        # m per cell: 250 x 250 cells
+
+surround_rig:
+  ros__parameters:
+    host: "localhost"
+    port: 2000
+    role_name: "ego"       # what l2_carla_demo's bridge sets on its vehicle
+    image_width: 480
+    image_height: 360
+    fov: 100.0             # deg; four cameras at 90 deg apart, so they overlap
+    pitch: -30.0           # deg, CARLA convention: negative looks down
+    sensor_tick: 0.1       # s: 10 Hz, half the bridge's 20 Hz
+
+lidar_bev:
+  ros__parameters:
+    ground_max_z: 0.3      # m above the ground: lower points count as road
+    obstacle_max_z: 2.5    # m: higher points (overpasses, tree tops) are ignored
+    azimuth_bins: 360      # 1 deg per bin. Finer than the LiDAR's horizontal spacing
+                           # (bridge: 300000 pts/s / 20 Hz / 32 channels = 469 per ring,
+                           # 0.77 deg apart) leaves empty bins, drawn as gray streaks.
+
+semantic_bev:
+  ros__parameters:
+    max_depth: 40.0        # m: farther pixels are too coarse to place
+    max_height: 3.0        # m: ignore points above this (sky, tree tops)
+    stride: 1              # use every pixel; 2 is faster but leaves gaps far away

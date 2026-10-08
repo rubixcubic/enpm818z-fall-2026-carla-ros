@@ -1,0 +1,33 @@
+# ENPM818Z L3 hands-on: every number the filter needs, in one place.
+#
+# R is measurable: park the car, log GNSS, compute sigma. That is Task 1.
+# Q is NOT measurable. It describes how wrong the constant-velocity model is,
+# and if you could measure that you would have used a better model. You tune
+# it, and Task 3 is how you find out whether you tuned it well.
+/**:
+  ros__parameters:
+    # --- geodetic anchor -----------------------------------------------------
+    # Leave empty to latch the first GNSS fix as the local origin.
+    origin_lat: 0.0
+    origin_lon: 0.0
+    latch_first_fix: true
+
+    # --- measurement noise, R ------------------------------------------------
+    # meters of standard deviation on each GNSS axis. CARLA's default GNSS
+    # noise is small; raise this to represent a degraded receiver, and say in
+    # your write-up that YOU introduced the degradation.
+    gnss_sigma_m: 1.5
+
+    # --- process noise, Q ----------------------------------------------------
+    # acceleration the constant-velocity model fails to predict, m/s^2.
+    # This is the knob. Too small and the filter stops listening.
+    accel_process_sigma: 1.5
+
+    # --- consistency ---------------------------------------------------------
+    # GNSS reports x and y, so m = 2 degrees of freedom.
+    nis_dof: 2
+    nis_gate_chi2: 9.21        # 99% for m=2. Above this, discard the fix.
+    nis_lo_chi2: 0.051         # 95% interval for m=2, lower bound
+    nis_hi_chi2: 7.378         # 95% interval for m=2, upper bound
+    gate_enabled: false        # Exercise 5: turn this on and watch what changes
+    max_consecutive_rejects: 10
