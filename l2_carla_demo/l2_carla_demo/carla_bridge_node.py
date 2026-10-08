@@ -28,6 +28,7 @@ from rclpy.qos import QoSDurabilityPolicy, QoSProfile, QoSReliabilityPolicy
 from geometry_msgs.msg import TransformStamped
 from sensor_msgs.msg import CameraInfo, Image, Imu, NavSatFix, PointCloud2
 from tf2_ros import StaticTransformBroadcaster, TransformBroadcaster
+from visualization_msgs.msg import Marker
 
 import carla
 
@@ -131,6 +132,9 @@ class CarlaBridge(Node):
             Imu, "/carla/ego_vehicle/imu", sensor_qos)
         self.pub_gnss = self.create_publisher(
             NavSatFix, "/carla/ego_vehicle/gnss", sensor_qos)
+        # The AV's body for RViz, sent once: it moves with its frame.
+        self.pub_marker = self.create_publisher(
+            Marker, "/carla/ego_vehicle/marker", latched)
 
         self.tf_broadcaster = TransformBroadcaster(self)
         self.static_tf_broadcaster = StaticTransformBroadcaster(self)
@@ -301,6 +305,31 @@ class CarlaBridge(Node):
         static.append(optical)
 
         self.static_tf_broadcaster.sendTransform(static)
+        self._publish_marker()
+
+    def _publish_marker(self) -> None:
+        """The AV's body in RViz: its own bounding box, in its own frame.
+
+        bounding_box.location is the box's center relative to the vehicle's
+        origin, the ego_vehicle frame; extent is half the size. frame_locked
+        makes RViz move the box with ego_vehicle, so one message is enough.
+        """
+        bb = self.vehicle.bounding_box
+        m = Marker()
+        m.header.frame_id = EGO_FRAME          # stamp 0: the latest transform
+        m.ns, m.id = "ego", 0
+        m.type, m.action = Marker.CUBE, Marker.ADD
+        m.frame_locked = True
+        x, y, z = conv.carla_to_ros_point(bb.location.x, bb.location.y, bb.location.z)
+        m.pose.position.x, m.pose.position.y, m.pose.position.z = x, y, z
+        m.pose.orientation.w = 1.0
+        m.scale.x, m.scale.y, m.scale.z = 2 * bb.extent.x, 2 * bb.extent.y, 2 * bb.extent.z
+        m.color.r = m.color.g = m.color.b = 0.95
+        m.color.a = 0.6
+        self.pub_marker.publish(m)
+        self.get_logger().info(
+            f"AV body {m.scale.x:.2f} x {m.scale.y:.2f} x {m.scale.z:.2f} m, "
+            f"center ({x:.2f}, {y:.2f}, {z:.2f}) in {EGO_FRAME}")
 
     # -------------------------------------------------------------- callbacks
     def _on_image(self, image) -> None:

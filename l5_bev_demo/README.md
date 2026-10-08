@@ -30,7 +30,8 @@ ros2 launch l5_bev_demo bev.launch.py                    # terminal 2
 ```
 
 RViz opens with the occupancy grid and the point cloud under the AV, and the
-three BEV images in their own panels. To save one moment as PNG files:
+three BEV images in their own panels. The "Front camera" panel shows the AV's front
+camera, so you can compare each view with the street. To save one moment as PNG files:
 
 ```bash
 ros2 run l5_bev_demo snapshot --ros-args -p out:=bev_snapshot

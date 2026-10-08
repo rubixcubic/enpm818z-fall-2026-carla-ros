@@ -23,7 +23,8 @@ ros2 launch l5_box_demo boxes.launch.py evaluate:=true     # terminal 3
 ```
 
 RViz shows the LiDAR and the boxes: each box, its heading axis drawn both
-ways, and a label with its size and heading. With `evaluate:=true` the node
+ways, and a label with its size and heading. The "Front camera" panel shows the
+AV's front camera, so you can see what each box is. With `evaluate:=true` the node
 grades every sweep against CARLA's true boxes and logs a report every 10 s
 (`out:=boxes.json` saves it).
 

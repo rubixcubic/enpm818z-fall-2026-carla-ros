@@ -33,7 +33,8 @@ ros2 launch l5_tracking_demo tracking.launch.py            # terminal 3
 
 RViz shows the LiDAR, the detections (blue boxes) and the tracks: gray
 tentative, green confirmed, orange coasting, each with its 1-sigma position
-ellipse, its velocity as an arrow of 1 s of travel, and its ID.
+ellipse, its velocity as an arrow of 1 s of travel, and its ID. The "Front camera"
+panel shows the AV's front camera, so you can see what each track is.
 
 Launch arguments:
 

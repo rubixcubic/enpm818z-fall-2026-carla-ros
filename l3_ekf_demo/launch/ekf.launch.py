@@ -4,7 +4,7 @@
     ros2 launch l3_ekf_demo ekf.launch.py rviz:=false
 
 RViz opens by default showing the estimate against the truth with the
-covariance ellipse drawn. Pass rviz:=false if l2_carla_demo already has one
+covariance ellipse drawn, and the front camera in its own panel. Pass rviz:=false if l2_carla_demo already has one
 open, or if you are running headless.
 
 Assumes l2_carla_demo's carla_bridge is already publishing the sensors. The

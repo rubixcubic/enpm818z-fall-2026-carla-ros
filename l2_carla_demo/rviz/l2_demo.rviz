@@ -109,6 +109,18 @@ Visualization Manager:
         Reliability Policy: Best Effort
         Value: /carla/ego_vehicle/rgb_front/image
       Value: true
+    - Class: rviz_default_plugins/Marker
+      Enabled: true
+      Name: The AV
+      Namespaces:
+        ego: true
+      Topic:
+        Depth: 1
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /carla/ego_vehicle/marker
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
