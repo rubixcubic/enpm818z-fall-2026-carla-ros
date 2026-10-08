@@ -71,6 +71,15 @@ the depth along the ray instead puts the image edges about 0.46 m above the
 road. When several classes fall in one cell, people and vehicles win over lane
 markings, and lane markings over the road.
 
+**`labels:=network`** (`ros2 launch l5_bev_demo bev.launch.py labels:=network`)
+splats a trained network's classes instead of CARLA's true ones, still with
+CARLA's true depth: it starts `l5_seg_demo`'s `seg_node` on the four roof
+cameras (SegFormer-B0, Cityscapes), and `semantic_bev` reads
+`/l5/<camera>/semantic_net`. That network has no lane-marking class, so the
+lane lines disappear from the grid, and fewer roof images reach it, so the grid
+is sparser. `l5_seg_demo`'s README has the numbers. The default,
+`labels:=truth`, is unchanged.
+
 ## Tasks
 
 1. **The grid.** Car B on the slides sits at (12.0, -2.0) m. Which cell is that

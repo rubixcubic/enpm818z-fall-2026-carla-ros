@@ -21,6 +21,12 @@ lift and splat, with nothing learned:
 
 Publishes /l5/bev/semantic (sensor_msgs/Image, bgr8, front up), in CARLA's own
 class colors, on the same grid as the other two views.
+
+labels:=truth (default) splats CARLA's true classes (/l5/<camera>/semantic).
+labels:=network splats a trained network's classes instead
+(/l5/<camera>/semantic_net, from l5_seg_demo's seg_node with rig:=true), with
+CARLA's true depth still. The network has no lane-marking class, so lane
+lines do not appear in that view.
 """
 
 import numpy as np
@@ -71,11 +77,16 @@ class SemanticBev(Node):
         self.declare_parameter("max_depth", 40.0)
         self.declare_parameter("max_height", 3.0)
         self.declare_parameter("stride", 2)
+        self.declare_parameter("labels", "truth")
         self.grid = BevGrid(self.get_parameter("half_extent").value,
                             self.get_parameter("resolution").value)
         self.max_depth = float(self.get_parameter("max_depth").value)
         self.max_height = float(self.get_parameter("max_height").value)
         self.stride = int(self.get_parameter("stride").value)
+        labels = self.get_parameter("labels").value
+        if labels not in ("truth", "network"):
+            raise SystemExit(f"labels must be 'truth' or 'network', not '{labels}'")
+        label_topic = "semantic" if labels == "truth" else "semantic_net"
 
         self.colors = np.zeros((256, 3), dtype=np.uint8)
         for tag, (r, g, b) in PALETTE.items():
@@ -96,7 +107,7 @@ class SemanticBev(Node):
                 CameraInfo, f"/l5/{name}/camera_info",
                 lambda m, n=name: self.info.__setitem__(n, m), latched)
             self.create_subscription(
-                Image, f"/l5/{name}/semantic",
+                Image, f"/l5/{name}/{label_topic}",
                 lambda m, n=name: self._store(self.semantic, n, m, np.uint8), sensor_qos)
             self.create_subscription(
                 Image, f"/l5/{name}/depth",
@@ -181,8 +192,9 @@ class SemanticBev(Node):
             tag_of[cell[win]] = t[win]
 
         if stamp is None:
-            self.get_logger().info("waiting for semantic and depth images from "
-                                   "surround_rig", throttle_duration_sec=5.0)
+            self.get_logger().info("waiting for class and depth images (surround_rig; "
+                                   "with labels:=network, seg_node rig:=true)",
+                                   throttle_duration_sec=5.0)
             return
         bgr = self.colors[tag_of].reshape(g.n, g.n, 3)
         g.draw_ego(bgr)

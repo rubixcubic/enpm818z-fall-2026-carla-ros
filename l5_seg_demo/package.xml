@@ -1,14 +1,15 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>l5_bev_demo</name>
+  <name>l5_seg_demo</name>
   <version>1.0.0</version>
   <description>
-    ENPM818Z Lecture 5 hands-on: three bird's-eye views of the same CARLA
-    scene, none of them learned. A LiDAR height map and occupancy grid, a
-    camera surround view by inverse perspective mapping, and a semantic grid
-    built by lift-splat with CARLA's true depth. Consumes the topics published
-    by l2_carla_demo and adds four roof cameras of its own.
+    ENPM818Z Lecture 5 hands-on, Segmentation section: semantic segmentation
+    of the L2 bridge's front camera by a trained network (SegFormer-B0,
+    trained on Cityscapes), graded pixel by pixel against CARLA's semantic
+    segmentation camera mounted at the same place: IoU per class and mIoU.
+    Optional: YOLOv8s-seg instance masks on the same image, and the network's
+    classes for l5_bev_demo's roof cameras (semantic_bev labels:=network).
   </description>
   <maintainer email="zeidk@umd.edu">Zeid Kootbally</maintainer>
   <license>MIT</license>
@@ -16,20 +17,16 @@
   <exec_depend>rclpy</exec_depend>
   <exec_depend>std_msgs</exec_depend>
   <exec_depend>sensor_msgs</exec_depend>
-  <exec_depend>geometry_msgs</exec_depend>
-  <exec_depend>nav_msgs</exec_depend>
-  <exec_depend>tf2_ros</exec_depend>
   <exec_depend>python3-numpy</exec_depend>
   <exec_depend>python3-opencv</exec_depend>
+  <exec_depend>python3-matplotlib</exec_depend>
   <exec_depend>l2_carla_demo</exec_depend>
-  <exec_depend>l5_seg_demo</exec_depend>  <!-- only for labels:=network -->
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
   <exec_depend>rviz2</exec_depend>
+  <!-- torch and transformers (and ultralytics, for instances:=true) come from
+       pip, as in L4: see the README. -->
 
-  <test_depend>ament_copyright</test_depend>
-  <test_depend>ament_flake8</test_depend>
-  <test_depend>ament_pep257</test_depend>
   <test_depend>python3-pytest</test_depend>
 
   <export>

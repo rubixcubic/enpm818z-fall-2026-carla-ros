@@ -9,6 +9,7 @@ ROS 2 packages for ENPM818Z.
 | `l5_bev_demo` | The lecture 5 hands-on: three bird's-eye views of one scene (LiDAR height and occupancy grid, camera IPM, semantic lift-splat). Adds four roof cameras to the bridge's vehicle. See its README. |
 | `l5_tracking_demo` | The lecture 5 tracking hands-on: a multi-object tracker (one Kalman filter per object, gate, GNN or NN, track lifecycle) on detections from the bridge's LiDAR or from CARLA's truth with noise added, graded against CARLA's truth. See its README. |
 | `l5_box_demo` | The lecture 5 3D Detection hands-on: 3D boxes (center, size, heading mod 180 deg) from the bridge's LiDAR with no learning, by clustering and L-shape fitting, graded against CARLA's true boxes; can feed `l5_tracking_demo` (`source:=boxes`). See its README. |
+| `l5_seg_demo` | The lecture 5 Segmentation hands-on: semantic segmentation of the bridge's front camera by a trained network (SegFormer-B0, Cityscapes), graded pixel by pixel against CARLA's semantic camera mounted at the same place (IoU per class, mIoU); optional YOLOv8s-seg instance masks; can give `l5_bev_demo` the network's classes (`labels:=network`). Needs `pip install transformers`. See its README. |
 | `gp1_starter/ads_pipeline` | **The GP1 starter.** The cumulative ADS pipeline that GP1 through GP4 build out. Copy it into your team repository; this copy carries a `COLCON_IGNORE` and is never built here. |
 
 ## Build

@@ -1,0 +1,29 @@
+# L5 Segmentation hands-on. Every value is a starting point chosen for the demo.
+
+seg_node:
+  ros__parameters:
+    image_topic: /carla/ego_vehicle/rgb_front/image   # the L2 bridge's camera
+    model_id: nvidia/segformer-b0-finetuned-cityscapes-1024-1024
+    weights_dir: ~/.cache/enpm818z-weights/huggingface  # downloaded on first run, 15 MB
+    device: cuda           # falls back to cpu when there is no GPU
+    half: true             # float16 on the GPU: same classes, faster (see README)
+    overlay_alpha: 0.5     # /l5/seg/overlay: 0 shows the camera only, 1 the classes only
+    instances: false       # true: also YOLOv8s-seg's masks on /l5/seg/instances
+    yolo_weights: ~/.cache/enpm818z-weights/yolov8s-seg.pt
+    yolo_conf: 0.25        # YOLO's default confidence threshold
+    rig: false             # true: also segment l5_bev_demo's four roof cameras
+    report_every: 10.0     # s between log lines
+
+seg_truth:
+  ros__parameters:
+    host: localhost
+    port: 2000
+    role_name: ego         # what l2_carla_demo's bridge sets on its vehicle
+    camera_info_topic: /carla/ego_vehicle/rgb_front/camera_info
+
+seg_eval:
+  ros__parameters:
+    truth_topic: /l5/seg/truth_tags
+    labels_topic: /l5/seg/labels
+    report_every: 10.0
+    out: ""                # a JSON file for the report, for example seg.json
