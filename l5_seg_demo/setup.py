@@ -30,6 +30,7 @@ setup(
             'seg_node   = l5_seg_demo.seg_node:main',
             'seg_truth  = l5_seg_demo.seg_truth_node:main',
             'seg_eval   = l5_seg_demo.seg_eval_node:main',
+            'seg_lidar  = l5_seg_demo.seg_lidar_node:main',
             'snapshot   = l5_seg_demo.snapshot:main',
         ],
     },

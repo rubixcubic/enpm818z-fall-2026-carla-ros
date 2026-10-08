@@ -7,6 +7,7 @@
     seg_node   the network on the bridge's camera   -> /l5/seg/labels, classes, overlay
     seg_truth  CARLA's semantic camera, same place  -> /l5/seg/truth_tags, truth
     seg_eval   (evaluate:=true) IoU per class and mIoU, logged every 10 s
+    seg_lidar  the network's classes painted onto the LiDAR -> /l5/seg/lidar_classes
 
 The bridge owns the simulation clock and the AV. Nothing here ticks.
 """
@@ -42,6 +43,8 @@ def generate_launch_description() -> LaunchDescription:
         Node(package="l5_seg_demo", executable="seg_truth", name="seg_truth",
              output="screen", emulate_tty=True, parameters=[params],
              condition=IfCondition(arg("truth"))),
+        Node(package="l5_seg_demo", executable="seg_lidar", name="seg_lidar",
+             output="screen", emulate_tty=True, parameters=[params]),
         Node(package="l5_seg_demo", executable="seg_eval", name="seg_eval",
              output="screen", emulate_tty=True,
              parameters=[params, {"out": arg("out")}],

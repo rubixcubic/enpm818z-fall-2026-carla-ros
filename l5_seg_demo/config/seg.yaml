@@ -21,6 +21,13 @@ seg_truth:
     role_name: ego         # what l2_carla_demo's bridge sets on its vehicle
     camera_info_topic: /carla/ego_vehicle/rgb_front/camera_info
 
+seg_lidar:
+  ros__parameters:
+    lidar_topic: /carla/ego_vehicle/lidar
+    labels_topic: /l5/seg/labels
+    camera_info_topic: /carla/ego_vehicle/rgb_front/camera_info
+    report_every: 10.0
+
 seg_eval:
   ros__parameters:
     truth_topic: /l5/seg/truth_tags

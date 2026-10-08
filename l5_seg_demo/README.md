@@ -30,7 +30,13 @@ ros2 launch l5_seg_demo seg.launch.py evaluate:=true       # terminal 3
 The first run downloads the network's weights (15 MB) into
 `~/.cache/enpm818z-weights/huggingface`. RViz shows the camera with the
 network's classes on top and a legend, the network's classes alone, and
-CARLA's true classes. With `evaluate:=true` the log shows, every 10 s, the IoU
+CARLA's true classes. The 3D view shows the AV and its LiDAR points, painted
+with the network's classes: `seg_lidar` projects each point into the camera
+image and gives it the class of its pixel (the idea of PointPainting, Vora et
+al., CVPR 2020). Points the camera does not see stay gray; in a measured run,
+the camera saw 14 to 15 percent of each sweep. The LiDAR sits on the roof and
+the camera at the windshield, so a point hidden from the camera behind a car
+still lands on the car's pixels and turns "car". With `evaluate:=true` the log shows, every 10 s, the IoU
 of each class and the mIoU so far (`out:=seg_report.json` saves them).
 
 To save one moment as the picture above (and its numbers as JSON):
@@ -49,6 +55,7 @@ in `~/.cache/enpm818z-weights/yolov8s-seg.pt`, as in L4).
 |---|---|---|
 | `seg_node` | `/carla/ego_vehicle/rgb_front/image` | `/l5/seg/labels` (mono8, one class per pixel), `/l5/seg/classes` (colors), `/l5/seg/overlay` (camera plus classes and legend), `/l5/seg/legend` (class names and colors, JSON), `/l5/seg/instances` (with `instances:=true`) |
 | `seg_truth` | CARLA | `/l5/seg/truth_tags` (mono8, CARLA's true class per pixel), `/l5/seg/truth` (colors) |
+| `seg_lidar` | `/carla/ego_vehicle/lidar`, `/l5/seg/labels`, the camera info and tf | `/l5/seg/lidar_classes` (the LiDAR points, colored by the network's class) |
 | `seg_eval` | `/l5/seg/labels`, `/l5/seg/truth_tags` | the log, and a JSON report with `out:=` |
 | `snapshot` | the camera, `/l5/seg/labels`, `/l5/seg/truth_tags` | one PNG, its JSON and an `.npz` with the three images |
 
