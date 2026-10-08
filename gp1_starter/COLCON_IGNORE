@@ -1,0 +1,2 @@
+The starter is copied into each team repository and built there.
+This copy is skipped so it never collides with a team package of the same name.
