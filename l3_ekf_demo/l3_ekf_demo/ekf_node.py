@@ -24,7 +24,7 @@ from rclpy.qos import QoSProfile, QoSReliabilityPolicy
 from sensor_msgs.msg import Imu, NavSatFix
 from std_msgs.msg import Float64
 
-from l3_ekf_demo.ekf import EKF2D
+from l3_ekf_demo.ekf import EKF2D, VERDICT_TEXT, nis_verdict
 from l3_ekf_demo.geodetic import LocalENU
 
 SENSOR_QOS = QoSProfile(depth=10, reliability=QoSReliabilityPolicy.BEST_EFFORT)
@@ -153,16 +153,12 @@ class EkfNode(Node):
                 "no GNSS fixes processed yet, so there is nothing to report. "
                 "Check the bridge: ros2 topic hz /carla/ego_vehicle/gnss")
             return
-        a = np.array(self._nis_hist)
         lo, hi = self.cfg["nis_lo_chi2"], self.cfg["nis_hi_chi2"]
-        inside = float(np.mean((a >= lo) & (a <= hi))) * 100.0
-        verdict = ("consistent" if 85.0 <= inside <= 100.0 else
-                   "OVERCONFIDENT, P or R too small (usually Q)" if a.mean() > hi else
-                   "underconfident, wasteful but safe")
+        verdict, mean, inside = nis_verdict(self._nis_hist, self.cfg["nis_dof"], lo, hi)
         self.get_logger().info(
             "NIS over %d fixes: mean %.2f (want about %d), %.0f%% inside "
-            "[%.3f, %.3f] -> %s" % (len(a), a.mean(), self.cfg["nis_dof"],
-                                    inside, lo, hi, verdict))
+            "[%.3f, %.3f] -> %s" % (len(self._nis_hist), mean, self.cfg["nis_dof"],
+                                    inside, lo, hi, VERDICT_TEXT[verdict]))
 
 
 def main() -> None:

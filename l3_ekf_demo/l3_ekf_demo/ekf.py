@@ -51,3 +51,37 @@ class EKF2D:
     def nis(nu: np.ndarray, S: np.ndarray) -> float:
         """Surprise, in units of expected surprise. Dimensionless."""
         return float(nu.T @ np.linalg.inv(S) @ nu)
+
+
+# --- Task 3's verdict, shared by the node and plot_nis --------------------
+# The words follow the slide 'Reading epsilon over time: above, below or
+# inside the band'.
+VERDICT_TEXT = {
+    "consistent": "consistent: the covariance is honest",
+    "overconfident": "OVERCONFIDENT: Q or R too small (usually Q). Dangerous",
+    "underconfident": "underconfident: wasteful, but safe",
+}
+
+
+def nis_verdict(values, dof: float, lo: float, hi: float,
+                min_inside: float = 85.0) -> tuple[str, float, float]:
+    """Return (verdict, mean NIS, percent inside [lo, hi]).
+
+    The band is the consistency check: at least min_inside percent of the
+    values inside it means consistent. Otherwise the mean says which way the
+    filter is wrong. An honest filter's NIS averages dof, the number of values
+    the sensor reports. Above dof, the surprises are bigger than the filter
+    predicted: overconfident. Below, smaller: underconfident. (Comparing the
+    mean with hi instead called a filter whose mean is between dof and hi
+    underconfident, which is the wrong direction.)
+    """
+    a = np.asarray(values, dtype=float)
+    inside = float(np.mean((a >= lo) & (a <= hi))) * 100.0
+    mean = float(a.mean())
+    if inside >= min_inside:
+        verdict = "consistent"
+    elif mean > dof:
+        verdict = "overconfident"
+    else:
+        verdict = "underconfident"
+    return verdict, mean, inside

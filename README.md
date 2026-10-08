@@ -5,7 +5,7 @@ ROS 2 packages for ENPM818Z.
 | Package | What it is |
 |---|---|
 | `l2_carla_demo` | The lecture 2 demo bridge. Publishes a CARLA sensor suite onto ROS 2 topics. Read it; you will import from it. |
-| `l3_ekf_demo` | The lecture 3 hands-on: fuses the bridge's GNSS and IMU with an EKF and logs the NIS. Subscribes to `l2_carla_demo`'s topics. |
+| `l3_ekf_demo` | The lecture 3 hands-on: fuses the bridge's GNSS and IMU with an EKF and logs the NIS. Subscribes to `l2_carla_demo`'s topics. Start the bridge with `gnss_noise_m:=1.5`, the GNSS noise the filter's R assumes. |
 | `l5_bev_demo` | The lecture 5 hands-on: three bird's-eye views of one scene (LiDAR height and occupancy grid, camera IPM, semantic lift-splat). Adds four roof cameras to the bridge's vehicle. See its README. |
 | `l5_tracking_demo` | The lecture 5 tracking hands-on: a multi-object tracker (one Kalman filter per object, gate, GNN or NN, track lifecycle) on detections from the bridge's LiDAR or from CARLA's truth with noise added, graded against CARLA's truth. See its README. |
 | `l5_box_demo` | The lecture 5 3D Detection hands-on: 3D boxes (center, size, heading mod 180 deg) from the bridge's LiDAR with no learning, by clustering and L-shape fitting, graded against CARLA's true boxes; can feed `l5_tracking_demo` (`source:=boxes`). See its README. |

@@ -63,6 +63,7 @@ class CarlaBridge(Node):
         self.declare_parameter("lidar_channels", 32)
         self.declare_parameter("lidar_range", 50.0)
         self.declare_parameter("lidar_points_per_second", 300000)
+        self.declare_parameter("gnss_noise_m", 0.0)  # std dev per axis; 0: CARLA's default
 
         self.delta = self.get_parameter("delta").value
         self.camera_fov = self.get_parameter("camera_fov").value
@@ -177,6 +178,8 @@ class CarlaBridge(Node):
             # point with autopilot "on". Seen here in 2 of 3 runs before this.
             self.traffic_manager = self.client.get_trafficmanager()
             self.traffic_manager.set_synchronous_mode(True)
+            # Tick once first: before it, the TM may never move the new vehicle.
+            self.world.tick()
             self.vehicle.set_autopilot(True, self.traffic_manager.get_port())
 
         self.mounts = self._mounts(self.vehicle)
@@ -230,7 +233,28 @@ class CarlaBridge(Node):
         imu.listen(self._on_imu)
         self.actors.append(imu)
 
-        gnss = self.world.spawn_actor(bp_lib.find("sensor.other.gnss"),
+        gnss_bp = bp_lib.find("sensor.other.gnss")
+        noise_m = float(self.get_parameter("gnss_noise_m").value)
+        if noise_m > 0.0:
+            # CARLA adds the noise to latitude and longitude in DEGREES and to
+            # altitude in meters (GnssSensor.cpp, 0.9.16). Meters to degrees
+            # comes from the map's own geolocation, the one the GNSS uses: the
+            # change in latitude over 100 m of CARLA y, in longitude over 100 m
+            # of CARLA x, measured at the spawn point.
+            m = self.world.get_map()
+            p = self.vehicle.get_transform().location
+            g0 = m.transform_to_geolocation(p)
+            gy = m.transform_to_geolocation(carla.Location(p.x, p.y + 100.0, p.z))
+            gx = m.transform_to_geolocation(carla.Location(p.x + 100.0, p.y, p.z))
+            lat_per_m = abs(gy.latitude - g0.latitude) / 100.0
+            lon_per_m = abs(gx.longitude - g0.longitude) / 100.0
+            gnss_bp.set_attribute("noise_lat_stddev", str(noise_m * lat_per_m))
+            gnss_bp.set_attribute("noise_lon_stddev", str(noise_m * lon_per_m))
+            gnss_bp.set_attribute("noise_alt_stddev", str(noise_m))
+            self.get_logger().info(
+                f"GNSS noise {noise_m:.2f} m per axis: {noise_m * lat_per_m:.3e} deg "
+                f"of latitude, {noise_m * lon_per_m:.3e} deg of longitude")
+        gnss = self.world.spawn_actor(gnss_bp,
                                       self.mounts["gnss"],
                                       attach_to=self.vehicle,
                                       attachment_type=rigid)

@@ -196,12 +196,37 @@ effort):
 ```bash
 ros2 run l5_seg_demo seg_eval --ros-args -r __node:=seg_eval_rig \
   -p truth_topic:=/l5/front/semantic -p labels_topic:=/l5/front/semantic_net \
-  -p reliable:=false
+  -p reliable:=false -p ignore_mask_topic:=/l5/front/ego_mask
 ```
 
-This grading was not measured: the run that tried it subscribed with reliable
-delivery, which cannot receive best-effort images, and `reliable:=false` was
-added after it (tested with a fake best-effort publisher, not in CARLA).
+**The AV sees itself.** Tilted 30 degrees down from the roof, the front camera
+has the AV's own hood across the bottom of its image. CARLA tags the hood "car",
+like any other car (the semantic camera has no tag for the AV), and the network
+calls most of it road (83, 99.5 and 94.7 percent of the hood's pixels in one
+saved frame of each run below). Graded as is, cars are 30 percent of the truth
+pixels, nearly all of them the AV, and the car IoU falls to 0.06.
+`ignore_mask_topic` leaves the AV out: `surround_rig` publishes, once, the pixels whose true depth puts them
+inside the AV's bounding box (`/l5/front/ego_mask`, 26.8 percent of the image),
+and `seg_eval` does not grade those pixels. In the saved frame of each run,
+CARLA tagged every mask pixel car, and the mask's edge follows the hood's.
+
+Measured, three runs of 90 s with `bev.launch.py labels:=network`, the same
+spawn point and traffic (so the same route), 40 vehicles, Town10HD. Two
+`seg_eval` nodes graded the same images, one with the mask and one without:
+
+| | without the mask | with the mask |
+|---|---|---|
+| frames graded | 333 to 373 | 317 to 352 |
+| **mIoU** | **0.168 to 0.170** | **0.206 to 0.209** |
+| pixel accuracy | 0.584 to 0.587 | 0.797 to 0.803 |
+| road | 0.585 to 0.589 | 0.931 to 0.938 |
+| car | 0.055 to 0.069 | 0.307 to 0.312 |
+| car, share of the truth pixels | 29.5 to 29.7 percent | 2.9 to 3.3 percent |
+| building | 0.601 to 0.603 | 0.601 to 0.611 |
+| sidewalk | 0.432 to 0.457 | 0.412 to 0.444 |
+
+(The masked grader waits for the mask, so it graded a few frames fewer.) With
+the mask, the network still calls 94 to 95 percent of CARLA's truck pixels car.
 
 ## License of the network
 

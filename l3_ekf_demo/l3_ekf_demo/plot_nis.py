@@ -10,16 +10,20 @@ Record first, then plot (either form of the arguments works):
     ros2 run l3_ekf_demo plot_nis --csv nis.csv --out nis.png
 
 Reading the plot is the whole exercise:
-    mostly ABOVE the band  -> overconfident. P or R too small, usually Q.
-                              This is the dangerous one.
-    mostly BELOW the band  -> underconfident. Throwing away information.
-                              Wasteful, safe.
-    inside the band        -> the reported covariance means something.
+    85% or more inside the band -> consistent. The reported covariance
+                                   means something.
+    otherwise, mean ABOVE 2     -> overconfident. Q or R too small, usually Q.
+                                   This is the dangerous one.
+    otherwise, mean BELOW 2     -> underconfident. Throwing away information.
+                                   Wasteful, safe.
+2 is the NIS's expected value: the number of values GNSS reports (x and y).
 """
 
 import argparse
 import csv
 import sys
+
+from l3_ekf_demo.ekf import VERDICT_TEXT, nis_verdict
 
 LO, HI, DOF = 0.051, 7.378, 2          # 95% interval for m = 2
 
@@ -61,13 +65,10 @@ def main() -> None:
     if not eps:
         sys.exit("no NIS values found in %s" % args.csv)
 
-    inside = sum(LO <= e <= HI for e in eps) / len(eps) * 100.0
-    mean = sum(eps) / len(eps)
+    verdict, mean, inside = nis_verdict(eps, DOF, LO, HI)
     print("%d fixes, mean NIS %.2f (want about %d), %.0f%% inside [%.3f, %.3f]"
           % (len(eps), mean, DOF, inside, LO, HI))
-    print("verdict:", "consistent" if inside >= 85.0
-          else "OVERCONFIDENT, shrink nothing and raise Q" if mean > HI
-          else "underconfident")
+    print("verdict:", VERDICT_TEXT[verdict])
 
     try:
         import matplotlib

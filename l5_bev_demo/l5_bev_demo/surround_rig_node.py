@@ -16,6 +16,13 @@ A real AV has only the first one. The other two are what a perfect network
 would output, so the semantic view shows what lift-splat can do when its depth
 is right, not what a trained network does.
 
+Each camera, tilted down from the roof, also sees part of the AV itself. From
+the first depth image of each place, the pixels whose true 3D point lies
+inside the AV's own bounding box are the AV's body; that mask is fixed, since
+the camera is rigid, and goes out once, latched, on /l5/<camera>/ego_mask
+(mono8, 255 = the AV). CARLA's semantic tag cannot tell the AV from any other
+car, so l5_seg_demo's seg_eval uses this mask to leave the AV out of the grade.
+
 This node never calls world.tick(). The bridge owns the clock; these cameras
 simply fire when it ticks. Start the bridge first:
 
@@ -79,7 +86,11 @@ class SurroundRig(Node):
                 "depth": self.create_publisher(Image, f"/l5/{name}/depth", sensor_qos),
                 "info": self.create_publisher(
                     CameraInfo, f"/l5/{name}/camera_info", latched),
+                "ego_mask": self.create_publisher(
+                    Image, f"/l5/{name}/ego_mask", latched),
             }
+        self.mounts = {}
+        self.masked = set()          # places whose ego_mask has been published
         self.static_tf = StaticTransformBroadcaster(self)
 
         # The bridge spawns its vehicle when it starts; we may be first, so look
@@ -124,6 +135,7 @@ class SurroundRig(Node):
     def _spawn_rig(self) -> None:
         bp_lib = self.world.get_blueprint_library()
         mounts = self._mounts()
+        self.mounts = mounts
         tick = str(self.get_parameter("sensor_tick").value)
         rigid = carla.AttachmentType.Rigid
         static = []
@@ -195,7 +207,44 @@ class SurroundRig(Node):
             msg.encoding = "32FC1"
             msg.step = 4 * image.width
             msg.data = meters.astype(np.float32).tobytes()
+            if name not in self.masked:
+                self._publish_ego_mask(name, meters, msg.header)
         pubs[kind].publish(msg)
+
+    def _publish_ego_mask(self, name: str, meters: np.ndarray, header) -> None:
+        """The pixels that see the AV's own body, from one true depth image.
+
+        Each pixel is lifted to 3D at its depth (along the optical axis, as in
+        semantic_bev), moved into the AV's frame with the mounting transform,
+        and kept when it falls inside the AV's bounding box, grown by 5 cm.
+        Points less than 10 cm above the box's floor are the road, not the AV.
+        """
+        h, w = meters.shape
+        f = w / (2.0 * np.tan(np.radians(self.fov) / 2.0))
+        u = np.arange(w, dtype=np.float64) - w / 2.0
+        v = np.arange(h, dtype=np.float64) - h / 2.0
+        d = meters
+        # camera body frame, CARLA's axes: x forward, y right, z up
+        pts = np.stack([d, u[None, :] * d / f, -v[:, None] * d / f,
+                        np.ones_like(d)]).reshape(4, -1)
+        p = np.array(self.mounts[name].get_matrix()) @ pts
+        bb = self.ego.bounding_box
+        c, e, margin = bb.location, bb.extent, 0.05
+        inside = ((np.abs(p[0] - c.x) <= e.x + margin)
+                  & (np.abs(p[1] - c.y) <= e.y + margin)
+                  & (p[2] <= c.z + e.z + margin)
+                  & (p[2] >= c.z - e.z + 0.10)).reshape(h, w)
+        msg = Image()
+        msg.header = header
+        msg.height, msg.width = h, w
+        msg.encoding = "mono8"
+        msg.is_bigendian = 0
+        msg.step = w
+        msg.data = (inside.astype(np.uint8) * 255).tobytes()
+        self.pubs[name]["ego_mask"].publish(msg)
+        self.masked.add(name)
+        self.get_logger().info(f"{name} camera: the AV's own body covers "
+                               f"{100.0 * inside.mean():.1f}% of the image (ego_mask)")
 
     # -------------------------------------------------------------- cleanup
     def shutdown(self) -> None:

@@ -9,7 +9,10 @@ open, or if you are running headless.
 
 Assumes l2_carla_demo's carla_bridge is already publishing the sensors. The
 filter subscribes to those topics and never touches the simulator, which is
-the point: it sees what a vehicle would see.
+the point: it sees what a vehicle would see. Start the bridge with the GNSS
+noise that config/ekf.yaml's R assumes:
+
+    ros2 launch l2_carla_demo demo.launch.py rviz:=false gnss_noise_m:=1.5
 """
 
 import os

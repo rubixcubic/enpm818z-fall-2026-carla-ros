@@ -26,4 +26,4 @@ seg_eval:
     truth_topic: /l5/seg/truth_tags
     labels_topic: /l5/seg/labels
     report_every: 10.0
-    out: ""                # a JSON file for the report, for example seg.json
+    out: ""                # a JSON file for the report, for example seg_report.json

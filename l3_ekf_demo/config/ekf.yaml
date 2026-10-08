@@ -13,9 +13,13 @@
     latch_first_fix: true
 
     # --- measurement noise, R ------------------------------------------------
-    # meters of standard deviation on each GNSS axis. CARLA's default GNSS
-    # noise is small; raise this to represent a degraded receiver, and say in
-    # your write-up that YOU introduced the degradation.
+    # meters of standard deviation on each GNSS axis. CARLA's GNSS noise
+    # settings are all 0 by default (measured: 1.1 and 1.2 cm standard
+    # deviation from the truth), so launch the bridge with gnss_noise_m:=1.5
+    # to give it the 1.5 m this R assumes.
+    # Without it the NIS averages about 0.01 and the check can only say
+    # underconfident. Change both together, and say in your write-up that YOU
+    # introduced the degradation.
     gnss_sigma_m: 1.5
 
     # --- process noise, Q ----------------------------------------------------

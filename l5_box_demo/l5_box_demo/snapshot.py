@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Save one sweep's boxes as a top view PNG (and its data as JSON, same name), in the AV's frame (x forward, to the right).
+"""Save one sweep's boxes as a top view PNG, in the AV's frame (x forward, to the right).
+
+The sweep's data goes next to it as <stem>_sweep.json (boxes.png gives
+boxes_sweep.json), so it never overwrites box_detector's report, which the
+README saves as out:=boxes.json.
 
 Listens to /l5/boxes/debug (published by box_detector every debug_every
 sweeps), keeps the skip-th message, draws it and exits:
@@ -46,10 +50,11 @@ class Snapshot(Node):
         self.seen += 1
         if self.seen <= self.skip:
             return
-        with open(self.out.rsplit(".", 1)[0] + ".json", "w") as f:   # to redraw later
+        data = self.out.rsplit(".", 1)[0] + "_sweep.json"    # to redraw later
+        with open(data, "w") as f:
             f.write(msg.data)
         draw(json.loads(msg.data), self.out, self.half)
-        self.get_logger().info(f"wrote {self.out}")
+        self.get_logger().info(f"wrote {self.out} and {data}")
         self.done = True
         raise SystemExit
 

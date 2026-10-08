@@ -12,14 +12,20 @@ Cityscapes does not grade are left out.
 
 Every report_every seconds the node logs the IoU of each class seen so far,
 the mIoU and the pixel accuracy, summed over all graded frames, and what the
-network called CARLA's lane-marking pixels. With out:=seg.json the report is
-also saved.
+network called CARLA's lane-marking pixels. With out:=seg_report.json the
+report is also saved.
 
 The topics are parameters, so the same node grades l5_bev_demo's front roof
 camera too:
     ros2 run l5_seg_demo seg_eval --ros-args \\
         -p truth_topic:=/l5/front/semantic -p labels_topic:=/l5/front/semantic_net \\
-        -p reliable:=false
+        -p reliable:=false -p ignore_mask_topic:=/l5/front/ego_mask
+
+That camera looks down at the AV's own hood and roof. CARLA tags them "car",
+like every other car, so without ignore_mask_topic they are graded as cars the
+network missed. The mask (255 = the AV's body, latched, from l5_bev_demo's
+surround_rig) takes those pixels out of the grade; no frame is graded until it
+has arrived.
 """
 
 from __future__ import annotations
@@ -29,10 +35,10 @@ import json
 import numpy as np
 import rclpy
 from rclpy.node import Node
-from rclpy.qos import QoSProfile, QoSReliabilityPolicy
+from rclpy.qos import QoSDurabilityPolicy, QoSProfile, QoSReliabilityPolicy
 from sensor_msgs.msg import Image
 
-from l5_seg_demo.classes import ROADLINE, tag_name, tags_to_graded
+from l5_seg_demo.classes import IGNORE, ROADLINE, tag_name, tags_to_graded
 from l5_seg_demo.ros_util import spin, stamp_key
 from l5_seg_demo.seg_eval import ConfusionMatrix
 
@@ -55,7 +61,11 @@ class SegEval(Node):
         # Must match the publishers: seg_node and seg_truth publish reliably;
         # l5_bev_demo's roof cameras (and seg_node's rig output) publish best effort.
         self.declare_parameter("reliable", True)
+        # mono8 image, nonzero where the camera sees the AV itself: not graded
+        self.declare_parameter("ignore_mask_topic", "")
         self.out = str(self.get_parameter("out").value)
+        self.mask_topic = str(self.get_parameter("ignore_mask_topic").value)
+        self.mask = None
         self.cm = ConfusionMatrix()
         self.truth: dict[int, np.ndarray] = {}
         self.labels: dict[int, np.ndarray] = {}
@@ -69,7 +79,16 @@ class SegEval(Node):
                                  lambda m: self._store("truth", m), qos)
         self.create_subscription(Image, self.get_parameter("labels_topic").value,
                                  lambda m: self._store("labels", m), qos)
+        if self.mask_topic:
+            latched = QoSProfile(depth=1, reliability=QoSReliabilityPolicy.RELIABLE,
+                                 durability=QoSDurabilityPolicy.TRANSIENT_LOCAL)
+            self.create_subscription(Image, self.mask_topic, self._on_mask, latched)
         self.create_timer(float(self.get_parameter("report_every").value), self._report)
+
+    def _on_mask(self, msg: Image) -> None:
+        self.mask = mono8(msg) > 0
+        self.get_logger().info(f"ignoring {int(self.mask.sum())} pixels "
+                               f"({100.0 * self.mask.mean():.1f}%) from {self.mask_topic}")
 
     def _store(self, side: str, msg: Image) -> None:
         self.received[side] += 1
@@ -91,12 +110,23 @@ class SegEval(Node):
             self.get_logger().warn(f"sizes differ: truth {truth_tags.shape}, "
                                    f"network {net_tags.shape}", throttle_duration_sec=5.0)
             return
-        self.cm.add(tags_to_graded(truth_tags), tags_to_graded(net_tags))
-        self.roadline += np.bincount(net_tags[truth_tags == ROADLINE], minlength=256)
+        truth = tags_to_graded(truth_tags)
+        roadline = truth_tags == ROADLINE
+        if self.mask_topic:
+            if self.mask is None or self.mask.shape != truth.shape:
+                self.get_logger().warn(f"no mask of the right size on {self.mask_topic} "
+                                       "yet; frame not graded", throttle_duration_sec=5.0)
+                return
+            truth[self.mask] = IGNORE
+            roadline &= ~self.mask
+        self.cm.add(truth, tags_to_graded(net_tags))
+        self.roadline += np.bincount(net_tags[roadline], minlength=256)
 
     def report(self) -> dict:
         rep = self.cm.report()
         rep["images_received"] = dict(self.received)
+        if self.mask is not None:
+            rep["ignored_mask_pixels"] = int(self.mask.sum())
         total = int(self.roadline.sum())
         if total:
             top = np.argsort(-self.roadline)[:3]

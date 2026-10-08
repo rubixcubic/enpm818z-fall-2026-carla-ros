@@ -27,3 +27,8 @@ carla_bridge:
     lidar_channels: 32
     lidar_range: 50.0
     lidar_points_per_second: 300000
+
+    # GNSS noise, standard deviation per axis in meters. 0.0 keeps CARLA's
+    # default noise attributes, which are all 0.0. The L3 EKF hands-on uses
+    # 1.5, the sigma of the filter's R (launch with gnss_noise_m:=1.5).
+    gnss_noise_m: 0.0

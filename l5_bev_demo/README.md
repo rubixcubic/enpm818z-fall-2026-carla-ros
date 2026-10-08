@@ -22,7 +22,7 @@ The CARLA server must be running, and the L2 bridge must own the clock:
 
 ```bash
 cd ~/enpm818z_ws
-colcon build --symlink-install --packages-select l2_carla_demo l5_bev_demo
+colcon build --symlink-install --packages-select l2_carla_demo l5_seg_demo l5_bev_demo
 source install/setup.bash
 
 ros2 launch l2_carla_demo demo.launch.py rviz:=false     # terminal 1
@@ -48,7 +48,12 @@ it mounts an RGB, a semantic segmentation and a depth camera with the same pose.
 It publishes `/l5/<camera>/rgb` (bgra8), `/l5/<camera>/semantic` (mono8, the
 class tag), `/l5/<camera>/depth` (32FC1, meters), `/l5/<camera>/camera_info`,
 and the static transforms `ego_vehicle -> l5/<camera> -> l5/<camera>_optical`.
-It never ticks the simulator.
+It also publishes `/l5/<camera>/ego_mask` once, latched (mono8, 255 where the
+camera sees the AV itself): the pixels of the first depth image whose 3D point
+falls inside the AV's bounding box. Measured: 26.8 percent of the front image
+(the hood), 9.2 percent of each side image and 37.8 percent of the rear image
+(the node's log, Tesla Model 3). `l5_seg_demo`'s `seg_eval` uses it to leave
+the AV out of the grade. It never ticks the simulator.
 
 **`lidar_bev`** turns each LiDAR sweep into two grids. Points inside the AV's
 footprint are dropped first: the lowest beams hit the AV's own roof.

@@ -33,6 +33,9 @@ To save one sweep as a picture (the AV's frame, x forward to the right):
 ros2 run l5_box_demo snapshot --ros-args -p out:=boxes.png
 ```
 
+It writes `boxes.png` and the sweep's data as `boxes_sweep.json`, so it does
+not overwrite the evaluation's `boxes.json`.
+
 To track the boxes instead of the cluster centroids:
 
 ```bash
