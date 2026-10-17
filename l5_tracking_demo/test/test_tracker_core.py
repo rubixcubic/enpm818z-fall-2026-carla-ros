@@ -10,8 +10,11 @@ from l5_tracking_demo.tracker_core import (
     associate_gnn, associate_nn)
 
 # The exercise's table: rows track B, track D; columns detections 1, 2, 3.
-EPS = np.array([[2.0, 1.0, 12.0],
-                [14.0, 0.5, 6.0]])
+# epsilon = d^2 / 1.2^2 from the positions in the deck's figure assoc_scene
+# (tracks B (12.35, -1.80), D (17.5, 0); boxes (9.8, -2.9), (14.7, -0.8),
+# (20.6, -1.6) m), rounded to one decimal as the students' table shows them.
+EPS = np.array([[5.4, 4.5, 47.3],
+                [47.0, 5.9, 8.5]])
 B, D = 0, 1
 
 
@@ -22,13 +25,13 @@ def total(pairs):
 def test_nn_order_changes_the_answer():
     b_first = associate_nn(EPS, [B, D])
     d_first = associate_nn(EPS, [D, B])
-    assert b_first == {B: 1, D: 2} and total(b_first) == 7.0
-    assert d_first == {D: 1, B: 0} and total(d_first) == 2.5
+    assert b_first == {B: 1, D: 2} and np.isclose(total(b_first), 13.0)
+    assert d_first == {D: 1, B: 0} and np.isclose(total(d_first), 11.3)
 
 
 def test_gnn_picks_the_lowest_total():
     pairs = associate_gnn(EPS)
-    assert pairs == {B: 0, D: 1} and total(pairs) == 2.5
+    assert pairs == {B: 0, D: 1} and np.isclose(total(pairs), 11.3)
 
 
 def test_epsilon_matches_the_slide():
