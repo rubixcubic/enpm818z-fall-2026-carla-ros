@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>l8_foxglove_demo</name>
+  <version>1.0.0</version>
+  <description>
+    ENPM818Z Lecture 8 reading, Foxglove: the L2 bridge, foxglove_bridge and a
+    node that publishes every car's true box and its constant-velocity
+    prediction, 5 s ahead, with the speeds and a warning when a prediction comes
+    close to the AV's own. A Foxglove layout shows them next to the camera and
+    the LiDAR.
+  </description>
+  <maintainer email="zeidk@umd.edu">Zeid Kootbally</maintainer>
+  <license>MIT</license>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>builtin_interfaces</exec_depend>
+  <exec_depend>visualization_msgs</exec_depend>
+  <exec_depend>l2_carla_demo</exec_depend>
+  <exec_depend>foxglove_bridge</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

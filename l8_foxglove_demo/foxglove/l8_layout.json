@@ -1,0 +1,106 @@
+{
+  "configById": {
+    "3D!l8scene": {
+      "cameraState": {
+        "perspective": true,
+        "distance": 70,
+        "phi": 50,
+        "thetaOffset": 90,
+        "targetOffset": [0, 0, 0],
+        "target": [0, 0, 0],
+        "targetOrientation": [0, 0, 0, 1],
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "followTf": "ego_vehicle",
+      "scene": {
+        "backgroundColor": "#101013",
+        "transforms": {"showLabel": false}
+      },
+      "topics": {
+        "/carla/ego_vehicle/lidar": {
+          "visible": true,
+          "colorField": "intensity",
+          "colorMode": "colormap",
+          "colorMap": "turbo",
+          "pointSize": 2
+        },
+        "/l8/vehicles": {"visible": true},
+        "/l8/predictions": {"visible": true},
+        "/carla/ego_vehicle/marker": {"visible": false},
+        "/carla/ego_vehicle/radar_front": {"visible": false}
+      },
+      "layers": {
+        "grid": {
+          "visible": true,
+          "frameLocked": true,
+          "size": 100,
+          "divisions": 20,
+          "lineWidth": 1,
+          "color": "#808080ff",
+          "frameId": "map"
+        }
+      },
+      "publish": {"type": "point"},
+      "imageMode": {},
+      "transforms": {}
+    },
+    "Image!front": {
+      "imageMode": {"imageTopic": "/carla/ego_vehicle/rgb_front/image"}
+    },
+    "Plot!speeds": {
+      "paths": [
+        {"value": "/l8/ego/speed.data", "enabled": true,
+         "timestampMethod": "receiveTime", "label": "AV (m/s)"},
+        {"value": "/l8/nearest/speed.data", "enabled": true,
+         "timestampMethod": "receiveTime", "label": "nearest car (m/s)"}
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "inline",
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "xAxisLabel": "time (s)",
+      "yAxisLabel": "speed (m/s)"
+    },
+    "RosOut!log": {
+      "searchTerms": [],
+      "minLogLevel": 1
+    },
+    "RawMessages!nearest": {
+      "topicPath": "/l8/nearest/distance",
+      "diffEnabled": false,
+      "diffMethod": "custom",
+      "diffTopicPath": "",
+      "showFullMessageForDiff": false,
+      "fontSize": 12
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "playbackConfig": {"speed": 1},
+  "layout": {
+    "direction": "column",
+    "splitPercentage": 62,
+    "first": {
+      "direction": "row",
+      "splitPercentage": 58,
+      "first": "3D!l8scene",
+      "second": "Image!front"
+    },
+    "second": {
+      "direction": "row",
+      "splitPercentage": 40,
+      "first": "Plot!speeds",
+      "second": {
+        "direction": "row",
+        "splitPercentage": 60,
+        "first": "RosOut!log",
+        "second": "RawMessages!nearest"
+      }
+    }
+  }
+}
