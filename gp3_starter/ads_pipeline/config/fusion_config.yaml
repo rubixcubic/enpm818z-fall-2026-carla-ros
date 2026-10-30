@@ -1,0 +1,10 @@
+fusion_node:
+  ros__parameters:
+    rig_config: config/carla_config.yaml   # your GP1 YAML
+    pose_topic: /localization/pose         # or /ground_truth/ego (report)
+    min_range: 1.0       # meters from the LiDAR; set from the reference run
+    max_range: 60.0
+    dbscan_eps: 0.7      # meters
+    dbscan_min_pts: 5
+    ground_clearance: 0.3  # meters above the road; lower points are dropped
+    use_sim_time: true

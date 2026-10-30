@@ -1,0 +1,20 @@
+localization_node:
+  ros__parameters:
+    # Q: process noise per second (scaled by dt in predict). These starting
+    # values are not tuned: tuning them is part of Task 2 (the NIS check).
+    q_x: 0.01
+    q_y: 0.01
+    q_theta: 0.001
+    q_v: 0.1
+    # R: GNSS noise variance, m^2. Measure it: your rig's GNSS noise is
+    # in your GP1 YAML, in degrees.
+    r_x: 1.0
+    r_y: 1.0
+    # Your team's antenna, in the vehicle frame: x forward, y LEFT (meters).
+    # The table on the GP3 page gives it; your YAML mount uses CARLA's y (right).
+    antenna_x: 0.0
+    antenna_y: 0.0
+    # Town01's map origin (CARLA transform_to_geolocation of (0, 0, 0)).
+    gnss_origin_lat: 0.0
+    gnss_origin_lon: 0.0
+    use_sim_time: true
