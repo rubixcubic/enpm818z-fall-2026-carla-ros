@@ -53,14 +53,15 @@ def creep_or_track(have_pose, creep_speed, target_speed):
 def curve_speed(path_ahead_xy, a_lat=2.0, a_brake=2.0, horizon=40.0):
     """Given. The highest speed (m/s) from which the car can still slow, at
     a_brake, to sqrt(a_lat / curvature) at every point of the next horizon
-    meters of path. Curvature from each three consecutive points. inf on a
-    straight path."""
+    meters of path, and stop at the path's end (the goal) when the end is
+    within the horizon. Curvature from each three consecutive points. inf on
+    a straight path that ends beyond the horizon."""
     p = np.asarray(path_ahead_xy, dtype=float)
-    if len(p) < 3:
+    if len(p) < 2:
         return math.inf
     seg = np.hypot(*np.diff(p, axis=0).T)
     s = np.r_[0.0, np.cumsum(seg)]
-    best = math.inf
+    best = math.sqrt(2.0 * a_brake * s[-1]) if s[-1] <= horizon else math.inf
     for i in range(1, len(p) - 1):
         if s[i] > horizon:
             break

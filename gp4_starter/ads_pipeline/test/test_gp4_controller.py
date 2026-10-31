@@ -85,3 +85,15 @@ def test_curve_speed_slows_for_a_turn_ahead():
     # From the turn's start: the first point with a curvature is the arc's
     # second point, 1.05 m along (6 m x (pi / 2) / 9): sqrt(3.46^2 + 2 x 2.0 x 1.05) = 4.02.
     assert curve_speed(path[10:], 2.0, 2.0) == pytest.approx(4.02, abs=0.05)
+
+
+def test_curve_speed_stops_at_the_end_of_the_path():
+    from ads_pipeline.controller_core import curve_speed
+    # A straight path that ends 8 m ahead, at the goal: braking at 2.0 m/s^2
+    # stops the car in 8 m from sqrt(2 x 2.0 x 8) = 5.66 m/s.
+    end = np.c_[np.arange(0.0, 10.0, 2.0), np.zeros(5)]
+    assert curve_speed(end, 2.0, 2.0) == pytest.approx(5.66, abs=0.01)
+    # Two points 1 m apart: sqrt(2 x 2.0 x 1) = 2.0 m/s.
+    assert curve_speed([[0.0, 0.0], [1.0, 0.0]], 2.0, 2.0) == pytest.approx(2.0)
+    # The end 58 m ahead is past the 40 m horizon: no limit yet.
+    assert curve_speed(np.c_[np.arange(0.0, 60.0, 2.0), np.zeros(30)], 2.0, 2.0) == np.inf

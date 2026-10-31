@@ -3,7 +3,7 @@ behavior node's target speed. Given.
 
 The speed is the behavior node's target, capped so the car can slow in
 time for the sharpest curve ahead (a_lat 2.0 m/s^2 in the curve, a_brake
-2.0 m/s^2 before it).
+2.0 m/s^2 before it) and stop at the goal once it is within 40 m.
 
 On each /behavior/target_speed it takes the latest pose at or before that
 stamp, moves it from the car's origin to the middle of the rear axle
