@@ -3,7 +3,7 @@
 <package format="3">
   <name>ads_msgs</name>
   <version>1.0.0</version>
-  <description>ENPM818Z messages shared by the group projects: tracked objects (GP3).</description>
+  <description>ENPM818Z messages shared by the group projects: tracked objects (GP3), vehicle commands (GP4).</description>
   <maintainer email="zeidk@umd.edu">Zeid Kootbally</maintainer>
   <license>Apache-2.0</license>
 

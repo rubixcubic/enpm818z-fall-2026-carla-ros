@@ -1,0 +1,11 @@
+town: Town01
+spawn_index: 109
+start_xy:
+- 339.3
+- -45.08
+goal_xy:
+- 99.6
+- -330.46
+length_m: 619.4
+junctions: 7
+lights: 7

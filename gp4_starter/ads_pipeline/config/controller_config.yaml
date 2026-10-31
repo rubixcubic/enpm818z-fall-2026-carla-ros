@@ -1,0 +1,16 @@
+controller_node:
+  ros__parameters:
+    lookahead_distance: 5.0   # m
+    wheelbase: 2.875          # m: your vehicle's, from Your Team's Values
+    rear_offset: 1.4          # m from the car's origin back to the rear axle: yours
+    max_steer_angle: 1.222    # rad: the wheel angle at CARLA steer = 1 (70 deg, measured)
+    steer_limit: 0.7          # rad: the most the controller commands
+    max_throttle: 0.75
+    max_brake: 1.0
+    creep_speed: 2.0          # m/s until the EKF publishes its first pose
+    a_lat: 2.0                # m/s^2: the speed in a curve is at most sqrt(a_lat / curvature)
+    a_brake: 2.0              # m/s^2: how hard the car slows before a curve
+    pid_kp: 0.5
+    pid_ki: 0.05
+    pid_kd: 0.1
+    pid_windup_limit: 2.0

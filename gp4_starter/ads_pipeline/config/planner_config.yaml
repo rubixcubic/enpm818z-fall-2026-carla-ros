@@ -1,0 +1,9 @@
+planner_node:
+  ros__parameters:
+    obstacle_clearance: 3.0   # m: trigger 1
+    max_deviation: 2.0        # m: trigger 2
+    replan_frequency: 2.0     # Hz: how often both triggers are checked
+    max_astar_nodes: 10000
+    clear_s: 1.0              # s a trigger must stay off before it can fire again
+    static_speed: 0.5         # m/s: slower tracks count as standing (trigger 1)
+    queue_m: 30.0             # m: a vehicle this close to a light's stop line is queued

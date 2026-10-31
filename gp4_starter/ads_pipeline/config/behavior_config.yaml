@@ -1,0 +1,10 @@
+behavior_node:
+  ros__parameters:
+    target_speed: 8.0         # m/s
+    slow_speed: 3.0           # m/s in OBSTACLE_AVOIDANCE
+    emergency_distance: 8.0   # m
+    obstacle_distance: 15.0   # m
+    stop_distance: 20.0       # m to a red or yellow light's stop line
+    creep_speed: 2.0          # m/s until the first path
+    lookahead_s: 2.0          # s of constant-velocity prediction per track
+    clearance: 3.0            # m from the path

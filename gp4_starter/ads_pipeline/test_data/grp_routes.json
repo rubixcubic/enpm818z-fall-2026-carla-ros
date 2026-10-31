@@ -1,0 +1,67 @@
+[
+ {
+  "town": "Town01",
+  "start_xy": [
+   338.75,
+   -247.45
+  ],
+  "goal_xy": [
+   153.61,
+   -4.86
+  ],
+  "grp_length_m": 541.22,
+  "lane_changes": 0
+ },
+ {
+  "town": "Town01",
+  "start_xy": [
+   154.02,
+   -46.2
+  ],
+  "goal_xy": [
+   334.76,
+   -229.16
+  ],
+  "grp_length_m": 354.46,
+  "lane_changes": 0
+ },
+ {
+  "town": "Town01",
+  "start_xy": [
+   338.72,
+   -299.45
+  ],
+  "goal_xy": [
+   83.18,
+   -1.99
+  ],
+  "grp_length_m": 955.11,
+  "lane_changes": 0
+ },
+ {
+  "town": "Town03",
+  "start_xy": [
+   153.72,
+   122.99
+  ],
+  "goal_xy": [
+   -13.78,
+   -134.88
+  ],
+  "grp_length_m": 656.44,
+  "lane_changes": 8
+ },
+ {
+  "town": "Town03",
+  "start_xy": [
+   -4.19,
+   203.4
+  ],
+  "goal_xy": [
+   -78.14,
+   -144.86
+  ],
+  "grp_length_m": 600.18,
+  "lane_changes": 6
+ }
+]
