@@ -10,8 +10,9 @@ From the run's bag, all from CARLA's ground truth:
 - pedestrian hits: CARLA's collision sensor misses people, so a hit is a
   person whose center enters the car's outline (2.5 m ahead and behind,
   1.1 m to each side) while the car moves faster than 0.5 m/s; one per person;
-- red-light violations: the car leaves a light's trigger area while the
-  light is red and the car moves faster than 1 m/s;
+- red-light violations: the car crosses a stop line (the signed distance to
+  it goes from 0 or more to below 0) while the light is red and the car
+  moves faster than 1 m/s;
 - cross-track error: the car's distance to the current planned path, mean
   and max; and the mean speed.
 Everything is counted up to the moment the car first comes within 2.0 m of
@@ -61,13 +62,55 @@ def arrival_index(route_xy, driven_xy, radius=2.0):
 
 
 def red_light_violations(samples):
-    """samples: [(t, state, at_light, speed)] in time order."""
-    count, prev_at = 0, False
-    for _, state, at, speed in samples:
-        if prev_at and not at and state == 'Red' and speed > 1.0:
+    """samples: [(t, state, signed distance to the stop line, speed)] in
+    time order; the distance is nan when no light applies."""
+    count, prev = 0, float('nan')
+    for _, state, dist, speed in samples:
+        if prev >= 0.0 > dist and state == 'Red' and speed > 1.0:
             count += 1
-        prev_at = at
+        prev = dist
     return count
+
+
+def lights_on_sim_clock(records):
+    """[(simulated t, state, signed distance to the stop line, speed)] from
+    [(recording time, 'ego' or 'light', payload)] in recording order. The
+    light message is a String with no stamp, so it takes the simulated time
+    and the speed of the car message recorded just before it."""
+    from ads_pipeline.ground_truth import parse_light
+    out, car = [], None
+    for _, kind, payload in records:
+        if kind == 'ego':
+            car = payload
+        elif car is not None:
+            state, _, dist = parse_light(payload)
+            out.append((car[0], state, dist, car[1]))
+    return out
+
+
+def read_light_records(bag_dir):
+    """The car and light messages of a bag with their recording times."""
+    import rosbag2_py
+    from nav_msgs.msg import Odometry
+    from rclpy.serialization import deserialize_message
+    from std_msgs.msg import String
+    from tools.bag_io import _storage_id
+    r = rosbag2_py.SequentialReader()
+    r.open(rosbag2_py.StorageOptions(uri=bag_dir, storage_id=_storage_id(bag_dir)),
+           rosbag2_py.ConverterOptions('', ''))
+    r.set_filter(rosbag2_py.StorageFilter(topics=['/ground_truth/ego',
+                                                  '/ground_truth/traffic_light']))
+    out = []
+    while r.has_next():
+        topic, data, t_rec = r.read_next()
+        if topic == '/ground_truth/ego':
+            m = deserialize_message(data, Odometry)
+            out.append((t_rec, 'ego', (m.header.stamp.sec + m.header.stamp.nanosec * 1e-9,
+                                       math.hypot(m.twist.twist.linear.x, m.twist.twist.linear.y))))
+        else:
+            out.append((t_rec, 'light', deserialize_message(data, String).data))
+    out.sort(key=lambda x: x[0])
+    return out
 
 
 def collision_count(events, window=1.0):
@@ -101,7 +144,7 @@ def main():
     ap.add_argument('--out', default='results/gp4/metrics.json')
     ap.add_argument('--map-file', default='ads_pipeline/maps/Town01.xodr')
     a = ap.parse_args()
-    d = bag_io.read(a.bag, ['/ground_truth/ego', '/ground_truth/traffic_light',
+    d = bag_io.read(a.bag, ['/ground_truth/ego',
                             '/ground_truth/collision', '/planning/path',
                             '/ground_truth/objects'])
     ego = d['/ground_truth/ego']
@@ -118,14 +161,9 @@ def main():
         t_end = ego[k][0]
         ego, driven, speed = ego[:k + 1], driven[:k + 1], speed[:k + 1]
         paths = [(t, p) for t, p in paths if t <= t_end]
-        d['/ground_truth/traffic_light'] = [x for x in d['/ground_truth/traffic_light'] if x[0] <= t_end]
     else:
         t_end = float('inf')
-    speed_at = {round(t, 3): s for (t, _), s in zip(ego, speed)}
-    lights = []
-    for t, m in d['/ground_truth/traffic_light']:
-        state, at, _ = parse_light(m.data)
-        lights.append((t, state, at, speed_at.get(round(t, 3), 0.0)))
+    lights = [x for x in lights_on_sim_clock(read_light_records(a.bag)) if x[0] <= t_end]
     events = [(float(m.data.split()[0]), m.data.split()[1]) for _, m in d['/ground_truth/collision']]
     events = [e for e in events if e[0] <= t_end]     # CARLA's clock, as the stamps
     people = {round(t, 3): [(o.id, (o.bbox.center.position.x, o.bbox.center.position.y))

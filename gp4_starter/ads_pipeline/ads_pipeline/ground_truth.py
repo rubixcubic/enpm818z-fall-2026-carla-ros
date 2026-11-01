@@ -3,9 +3,12 @@
 Given. Call GroundTruth.publish(stamp) in sensor_manager right after
 world.tick(), so its stamps match the sensors' stamps. No filter or fusion
 node may subscribe to these topics: they exist to grade the estimates.
+GP4 adds /carla/speedometer, a sensor (a car's wheel-speed reading), which
+the controller may use, and the traffic light ahead of the car.
 """
 import math
 
+from geometry_msgs.msg import TwistStamped
 from nav_msgs.msg import Odometry
 from std_msgs.msg import String
 from vision_msgs.msg import (Detection3D, Detection3DArray,
@@ -33,6 +36,26 @@ def ahead_distance(ego_xy, ego_yaw, point_xy):
     negative once the car has passed it."""
     return round((point_xy[0] - ego_xy[0]) * math.cos(ego_yaw)
                  + (point_xy[1] - ego_xy[1]) * math.sin(ego_yaw), 6)
+
+
+def light_ahead(ego_xy, ego_yaw, stops, max_ahead=50.0, behind=5.0, lane_half=2.0,
+                max_yaw=0.5):
+    """(key, signed distance) of the stop line the car drives toward, or None.
+    stops: [(key, (x, y), yaw)], map frame. A stop line counts when it faces
+    the car's way (within max_yaw rad), lies in the car's lane (within
+    lane_half m to the side) and is at most max_ahead m ahead, or at most
+    behind m behind, so the crossing itself is seen."""
+    c, s = math.cos(ego_yaw), math.sin(ego_yaw)
+    best = None
+    for key, (x, y), yaw in stops:
+        if abs((yaw - ego_yaw + math.pi) % (2 * math.pi) - math.pi) > max_yaw:
+            continue
+        dx, dy = x - ego_xy[0], y - ego_xy[1]
+        ahead, side = c * dx + s * dy, -s * dx + c * dy
+        if abs(side) <= lane_half and -behind <= ahead <= max_ahead:
+            if best is None or ahead < best[1]:
+                best = (key, round(ahead, 6))
+    return best
 
 
 def carla_to_map_xy(x, y):
@@ -85,6 +108,14 @@ class GroundTruth:
             # GP4: collisions and the traffic light that affects the car.
             self.pub_col = node.create_publisher(String, '/ground_truth/collision', 10)
             self.pub_light = node.create_publisher(String, '/ground_truth/traffic_light', 10)
+            # A speedometer, as a car's wheel-speed sensors give it: m/s in twist.linear.x.
+            self.pub_speed = node.create_publisher(TwistStamped, '/carla/speedometer', 10)
+            # Every stop line in the town, once: CARLA reports a light to the car
+            # only inside its trigger zone, 2 to 3 m before the line, too late to stop.
+            self.lights = {l.id: l for l in world.get_actors().filter('traffic.traffic_light')}
+            self.stops = [(lid, carla_to_map_xy(w.transform.location.x, w.transform.location.y),
+                           carla_to_map_yaw(w.transform.rotation.yaw))
+                          for lid, l in self.lights.items() for w in l.get_stop_waypoints()]
             bp = world.get_blueprint_library().find('sensor.other.collision')
             col = world.spawn_actor(bp, __import__('carla').Transform(), attach_to=ego)
             col.listen(self._on_collision)
@@ -115,6 +146,11 @@ class GroundTruth:
         self.pub_obj.publish(arr)
         if self.gp4:
             self._publish_light(tf, stamp)
+            v = self.ego.get_velocity()
+            sp = TwistStamped()
+            sp.header = header('ego_vehicle', stamp)
+            sp.twist.linear.x = math.hypot(v.x, v.y)
+            self.pub_speed.publish(sp)
 
     def _on_collision(self, event):
         msg = String()
@@ -122,16 +158,11 @@ class GroundTruth:
         self.pub_col.publish(msg)
 
     def _publish_light(self, tf, stamp):
-        state, at, dist = str(self.ego.get_traffic_light_state()), False, float('nan')
-        light = self.ego.get_traffic_light()
-        if light is not None:
-            at = self.ego.is_at_traffic_light()
-            ego_xy = carla_to_map_xy(tf.location.x, tf.location.y)
-            yaw = carla_to_map_yaw(tf.rotation.yaw)
-            stops = [carla_to_map_xy(w.transform.location.x, w.transform.location.y)
-                     for w in light.get_stop_waypoints()]
-            if stops:
-                dist = min((ahead_distance(ego_xy, yaw, p) for p in stops), key=abs)
+        state, at, dist = 'Green', False, float('nan')
+        found = light_ahead(carla_to_map_xy(tf.location.x, tf.location.y),
+                            carla_to_map_yaw(tf.rotation.yaw), self.stops)
+        if found is not None:
+            state, at, dist = str(self.lights[found[0]].get_state()), True, found[1]
         msg = String()
         msg.data = light_message(state, at, dist)
         self.pub_light.publish(msg)

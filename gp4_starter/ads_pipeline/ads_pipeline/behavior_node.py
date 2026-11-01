@@ -58,7 +58,7 @@ class BehaviorNode(Node):
         self.fsm = BehaviorFSM(p('target_speed', 8.0), p('slow_speed', 3.0),
                                p('emergency_distance', 8.0), p('obstacle_distance', 15.0),
                                p('stop_distance', 20.0), p('creep_speed', 2.0))
-        self.lookahead_s, self.clearance = p('lookahead_s', 2.0), p('clearance', 3.0)
+        self.lookahead_s, self.clearance = p('lookahead_s', 2.0), p('clearance', 2.0)
         self.path, self.path_seen, self.car = np.zeros((0, 2)), False, None
         self.speed, self.points = 0.0, np.zeros((0, 2))
         self.half_width, self.front = p('lidar_half_width', 1.1), p('front_offset', 2.5)

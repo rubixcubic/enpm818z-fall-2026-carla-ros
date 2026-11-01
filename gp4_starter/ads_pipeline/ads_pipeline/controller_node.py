@@ -5,6 +5,10 @@ The speed is the behavior node's target, capped so the car can slow in
 time for the sharpest curve ahead (a_lat 2.0 m/s^2 in the curve, a_brake
 2.0 m/s^2 before it) and stop at the goal once it is within 40 m.
 
+The car's speed comes from /carla/speedometer (a wheel-speed reading), not
+from the EKF: the EKF's speed jumps at each GNSS fix and lags when the car
+brakes, and in a turn the controller then braked the car to a stop.
+
 The lookahead is lookahead_distance (5 m) or lookahead_time (1 s) of travel
 at the current speed, whichever is longer: the EKF's pose jumps a little at
 each GNSS fix, and a short lookahead turns each jump into a swerve.
@@ -65,6 +69,7 @@ class ControllerNode(Node):
                                  p('pid_windup_limit', 2.0))
         self.path = np.zeros((0, 2))
         self.pose_t, self.poses = [], []         # stamps, (x, y, theta, v)
+        self.speed_t, self.speeds = [], []       # the speedometer: stamps, m/s
         self.t_last = None
         self.pub = self.create_publisher(VehicleCmd, '/control/vehicle_cmd', 10)
         self.create_subscription(Path, '/planning/path', self.on_path, 10)
@@ -73,6 +78,7 @@ class ControllerNode(Node):
             self.create_subscription(Odometry, pose_topic, self.on_odom, 50)
         else:
             self.create_subscription(Odometry, '/localization/odom', self.on_odom, 50)
+        self.create_subscription(TwistStamped, '/carla/speedometer', self.on_speedometer, 50)
         self.create_subscription(TwistStamped, '/behavior/target_speed', self.on_target, 10)
 
     def on_path(self, msg):
@@ -89,6 +95,12 @@ class ControllerNode(Node):
         if len(self.pose_t) > 2000:
             del self.pose_t[:1000], self.poses[:1000]
 
+    def on_speedometer(self, msg):
+        self.speed_t.append(stamp_s(msg.header))
+        self.speeds.append(msg.twist.linear.x)
+        if len(self.speed_t) > 2000:
+            del self.speed_t[:1000], self.speeds[:1000]
+
     def on_target(self, msg):
         t = stamp_s(msg.header)
         i = bisect.bisect_right(self.pose_t, t + 1e-3) - 1
@@ -96,7 +108,10 @@ class ControllerNode(Node):
         override, speed = creep_or_track(have_pose, self.creep_speed, msg.twist.linear.x)
         dt = 0.05 if self.t_last is None else max(1e-3, t - self.t_last)
         self.t_last = t
-        v = self.poses[i][3] if i >= 0 else 0.0
+        j = bisect.bisect_right(self.speed_t, t + 1e-3) - 1
+        # The speedometer, as a real car's wheel speed: the EKF's speed jumps at
+        # each GNSS fix and lags when the car brakes. The EKF's if none came yet.
+        v = self.speeds[j] if j >= 0 else (self.poses[i][3] if i >= 0 else 0.0)
         if override is not None:
             delta = override
         else:
