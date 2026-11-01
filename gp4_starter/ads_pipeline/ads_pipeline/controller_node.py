@@ -11,7 +11,10 @@ brakes, and in a turn the controller then braked the car to a stop.
 
 It steers by a smoothed heading (smooth_heading): the gyro turns it, and it
 drifts toward the EKF's heading with heading_tau (2 s), so a jump in the
-EKF's heading at a GNSS fix does not swerve the car.
+EKF's heading at a GNSS fix does not swerve the car. At the start it keeps
+creeping straight for settle_s (4 s) after the EKF's first pose, while the
+path ahead is straight (settling), then starts the heading from the path's
+direction: the EKF's first heading was off by up to 38 degrees.
 
 The lookahead is lookahead_distance (5 m) or lookahead_time (1 s) of travel
 at the current speed, whichever is longer: the EKF's pose jumps a little at
@@ -40,8 +43,8 @@ from rclpy.node import Node
 from sensor_msgs.msg import Imu
 
 from ads_pipeline.controller_core import (PIDController, creep_or_track, curve_speed,
-                                          pure_pursuit_steer, smooth_heading,
-                                          to_vehicle_cmd)
+                                          path_heading, pure_pursuit_steer, settling,
+                                          smooth_heading, to_vehicle_cmd)
 
 
 def stamp_s(header):
@@ -78,6 +81,8 @@ class ControllerNode(Node):
         self.speed_t, self.speeds = [], []       # the speedometer: stamps, m/s
         self.heading_tau = p('heading_tau', 2.0)
         self.yaw_rate, self.heading = 0.0, None  # gyro, and the heading we steer by
+        self.settle_s = p('settle_s', 4.0)       # creep straight this long after the first pose
+        self.first_pose_t = None
         self.t_last = None
         self.pub = self.create_publisher(VehicleCmd, '/control/vehicle_cmd', 10)
         self.create_subscription(Path, '/planning/path', self.on_path, 10)
@@ -98,6 +103,8 @@ class ControllerNode(Node):
         if self.pose_t and t <= self.pose_t[-1]:
             return
         tw = msg.twist.twist.linear
+        if self.first_pose_t is None:
+            self.first_pose_t = t
         self.pose_t.append(t)
         self.poses.append((msg.pose.pose.position.x, msg.pose.pose.position.y,
                            yaw_of(msg.pose.pose.orientation), math.hypot(tw.x, tw.y)))
@@ -117,6 +124,13 @@ class ControllerNode(Node):
         t = stamp_s(msg.header)
         i = bisect.bisect_right(self.pose_t, t + 1e-3) - 1
         have_pose = i >= 0 and len(self.path) >= 2
+        if have_pose and self.heading is None:      # still creeping: has the EKF settled?
+            x, y = self.poses[i][0], self.poses[i][1]
+            k = int(np.argmin(np.hypot(self.path[:, 0] - x, self.path[:, 1] - y)))
+            if settling(t - self.first_pose_t, self.settle_s, self.path[k:]):
+                have_pose = False
+            else:                                   # start from the path's direction
+                self.heading = path_heading(self.path, k, self.poses[i][2])
         override, speed = creep_or_track(have_pose, self.creep_speed, msg.twist.linear.x)
         dt = 0.05 if self.t_last is None else max(1e-3, t - self.t_last)
         self.t_last = t
@@ -128,8 +142,7 @@ class ControllerNode(Node):
             delta = override
         else:
             x, y, th, _ = self.poses[i]
-            self.heading = th if self.heading is None else smooth_heading(
-                self.heading, self.yaw_rate, dt, th, self.heading_tau)
+            self.heading = smooth_heading(self.heading, self.yaw_rate, dt, th, self.heading_tau)
             th = self.heading
             rear = (x - self.rear_offset * math.cos(th), y - self.rear_offset * math.sin(th))
             ld = max(self.lookahead, self.lookahead_time * v)   # longer at speed: less swerve

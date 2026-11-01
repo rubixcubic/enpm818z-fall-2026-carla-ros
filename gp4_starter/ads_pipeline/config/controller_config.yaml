@@ -3,6 +3,7 @@ controller_node:
     lookahead_distance: 5.0   # m
     lookahead_time: 1.0       # s: the lookahead is at least this much travel
     heading_tau: 2.0          # s: the steering heading drifts to the EKF's this slowly
+    settle_s: 4.0             # s: creep straight after the EKF's first pose while it settles
     wheelbase: 2.875          # m: your vehicle's, from Your Team's Values
     rear_offset: 1.4          # m from the car's origin back to the rear axle: yours
     max_steer_angle: 1.222    # rad: the wheel angle at CARLA steer = 1 (70 deg, measured)

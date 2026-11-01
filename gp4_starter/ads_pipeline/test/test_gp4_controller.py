@@ -109,3 +109,30 @@ def test_smooth_heading_follows_the_gyro_and_drifts_to_the_ekf():
     # Across +-pi it takes the short way and stays wrapped.
     h = smooth_heading(math.pi - 0.01, 0.0, 0.05, -math.pi + 0.01, 2.0)
     assert abs(h) > math.pi - 0.01 and -math.pi <= h <= math.pi
+
+
+def test_a_stop_still_stops_the_creeping_car():
+    # The behavior node says stop (an object close ahead): the creep obeys.
+    assert creep_or_track(False, 2.0, 0.0) == (0.0, 0.0)
+
+
+def test_settling_holds_the_creep_on_a_straight_start_only():
+    import numpy as np
+    from ads_pipeline.controller_core import settling
+    straight = np.c_[np.arange(0.0, 30.0, 2.0), np.zeros(15)]
+    assert settling(1.0, 4.0, straight)          # the EKF is 1 s old: keep creeping
+    assert not settling(4.5, 4.0, straight)      # settled
+    # A path that turns 90 degrees within 15 m: stop creeping and steer.
+    th = np.linspace(0, np.pi / 2, 8)
+    bend = np.vstack([[0.0, 0.0], np.c_[4 + 6 * np.sin(th), 6 - 6 * np.cos(th)]])
+    assert not settling(1.0, 4.0, bend)
+
+
+def test_path_heading_falls_back_at_the_end_of_the_path():
+    import math
+    import numpy as np
+    from ads_pipeline.controller_core import path_heading
+    path = np.array([[0.0, 0.0], [0.0, 2.0], [0.0, 4.0]])
+    assert path_heading(path, 0, 1.0) == pytest.approx(math.pi / 2)
+    # At the last waypoint there is no direction: use the fallback (the EKF's heading).
+    assert path_heading(path, 2, 1.0) == 1.0

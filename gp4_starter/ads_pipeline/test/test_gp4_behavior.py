@@ -110,3 +110,14 @@ def test_lidar_corridor_follows_a_curved_path():
     # The same points straight ahead of the car, where the road does not go.
     straight = np.c_[np.full(6, 17.0), np.zeros(6)]
     assert lidar_blocked(straight, path) == math.inf
+
+
+def test_pedestrians_are_predicted_1_s_ahead_vehicles_2_s():
+    from ads_pipeline.behavior_core import ahead_by_class
+    # A person 3.5 m from the path, walking toward it at 1.0 m/s: in 1 s 2.5 m
+    # away (outside the 2 m band), in 2 s 1.5 m away. A car the same way at 1.0 m/s.
+    person = {'xy': np.array([10.0, 3.5]), 'v': np.array([0.0, -1.0]), 'cls': 'pedestrian'}
+    car = {'xy': np.array([10.0, 3.5]), 'v': np.array([0.0, -1.0]), 'cls': 'vehicle'}
+    assert ahead_by_class(PATH, [person], 2.0, 1.0, 2.0) == math.inf
+    assert ahead_by_class(PATH, [car], 2.0, 1.0, 2.0) == 10.0
+    assert ahead_by_class(PATH, [person, car], 2.0, 1.0, 2.0) == 10.0

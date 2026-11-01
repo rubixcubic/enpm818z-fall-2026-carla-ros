@@ -6,7 +6,8 @@ On every /perception/tracks message (one per camera frame) it publishes
 so the chain detector, fusion, tracker, behavior, controller answers every
 frame and sensor_manager can tick. The path is cut at the waypoint nearest
 the car, and an object counts as ahead when its constant-velocity position
-over the next lookahead_s seconds comes within clearance of what is left.
+over the next lookahead_s seconds (ped_lookahead_s for pedestrians) comes
+within clearance of what is left.
 
 At the goal (less than 1.5 m of path left) it holds the car: speed 0, STOP.
 
@@ -34,7 +35,7 @@ from rclpy.node import Node
 from sensor_msgs.msg import PointCloud2
 from std_msgs.msg import String
 
-from ads_pipeline.behavior_core import BehaviorFSM, lidar_blocked, nearest_ahead
+from ads_pipeline.behavior_core import BehaviorFSM, ahead_by_class, lidar_blocked
 from ads_pipeline.ground_truth import parse_light
 
 
@@ -59,6 +60,7 @@ class BehaviorNode(Node):
                                p('emergency_distance', 8.0), p('obstacle_distance', 15.0),
                                p('stop_distance', 20.0), p('creep_speed', 2.0))
         self.lookahead_s, self.clearance = p('lookahead_s', 2.0), p('clearance', 2.0)
+        self.ped_lookahead_s = p('ped_lookahead_s', 1.0)
         self.path, self.path_seen, self.car = np.zeros((0, 2)), False, None
         self.speed, self.points = 0.0, np.zeros((0, 2))
         self.half_width, self.front = p('lidar_half_width', 1.1), p('front_offset', 2.5)
@@ -110,9 +112,10 @@ class BehaviorNode(Node):
         if len(path) and self.car is not None:
             k = int(np.argmin(np.hypot(path[:, 0] - self.car[0], path[:, 1] - self.car[1])))
             path = path[k:]
-        tracks = [{'xy': (o.position.x, o.position.y), 'v': (o.velocity.x, o.velocity.y)}
-                  for o in msg.objects]
-        ahead = nearest_ahead(path, tracks, self.lookahead_s, self.clearance)
+        tracks = [{'xy': (o.position.x, o.position.y), 'v': (o.velocity.x, o.velocity.y),
+                   'cls': o.class_id} for o in msg.objects]
+        ahead = ahead_by_class(path, tracks, self.lookahead_s, self.ped_lookahead_s,
+                               self.clearance)
         state, speed = self.fsm.update(ahead, self.light[0], self.light[2],
                                        len(self.path) == 0, self.path_seen)
         name = state.name

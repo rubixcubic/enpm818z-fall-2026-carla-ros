@@ -44,10 +44,40 @@ def to_vehicle_cmd(delta, u, max_steer, max_throttle, max_brake):
 
 
 def creep_or_track(have_pose, creep_speed, target_speed):
-    """Given. Before the first pose (the EKF waits for the car to move), drive
-    straight at creep_speed: (steering override 0.0, speed). After it:
-    (None, target_speed)."""
-    return (None, target_speed) if have_pose else (0.0, creep_speed)
+    """Given. Before the first pose (the EKF waits for the car to move), and
+    while it settles, drive straight at creep_speed, or slower when the
+    behavior node asks for less (a stop still stops): (steering override
+    0.0, speed). After it: (None, target_speed)."""
+    return (None, target_speed) if have_pose else (0.0, min(creep_speed, target_speed))
+
+
+def path_heading(path_xy, k, fallback):
+    """Given. The path's direction (rad) at waypoint k, or fallback when no
+    later waypoint is farther than 1 cm (at the end of the path)."""
+    p = np.asarray(path_xy, dtype=float)
+    for j in range(k + 1, len(p)):
+        d = p[j] - p[k]
+        if math.hypot(d[0], d[1]) > 0.01:
+            return math.atan2(d[1], d[0])
+    return fallback
+
+
+def settling(since_first_pose, settle_s, path_ahead_xy, max_turn=0.09, distance=15.0):
+    """Given. True while the EKF is younger than settle_s seconds and the path
+    turns less than max_turn rad (about 5 degrees) over the next distance
+    meters: the car keeps creeping straight. Its first heading and position
+    are off by up to 38 degrees and 1 m, and steering by them swerves the car."""
+    if since_first_pose is None:
+        return True
+    if since_first_pose >= settle_s:
+        return False
+    p = np.asarray(path_ahead_xy, dtype=float)
+    if len(p) < 3:
+        return False
+    seg = np.diff(p, axis=0)
+    s = np.r_[0.0, np.cumsum(np.hypot(seg[:, 0], seg[:, 1]))][1:]
+    h = np.unwrap(np.arctan2(seg[:, 1], seg[:, 0]))[s <= distance]
+    return len(h) > 0 and float(np.ptp(h)) < max_turn
 
 
 def smooth_heading(prev, yaw_rate, dt, measured, tau):

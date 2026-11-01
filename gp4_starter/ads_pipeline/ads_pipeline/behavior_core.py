@@ -37,6 +37,17 @@ def nearest_ahead(path_xy, tracks, lookahead_s, clearance, dt=0.1):
     return best
 
 
+def ahead_by_class(path_xy, tracks, lookahead_s, ped_lookahead_s, clearance):
+    """Given. nearest_ahead with a shorter prediction for pedestrians: their
+    tracks' speeds are noisy (the camera places them), and 2 s of a wrong
+    speed carried people standing on the sidewalk into the band. tracks:
+    [{'xy', 'v', 'cls'}]; a track with no 'cls' counts as a vehicle."""
+    peds = [o for o in tracks if o.get('cls') == 'pedestrian']
+    others = [o for o in tracks if o.get('cls') != 'pedestrian']
+    return min(nearest_ahead(path_xy, others, lookahead_s, clearance),
+               nearest_ahead(path_xy, peds, ped_lookahead_s, clearance))
+
+
 def lidar_blocked(points_xy, path_xy, half_width=1.1, min_points=5):
     """Given. How far along the path (m, from its first point, the car) the
     nearest LiDAR point is that lies within half_width of the path; inf when
