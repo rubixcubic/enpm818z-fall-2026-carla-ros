@@ -50,6 +50,16 @@ def creep_or_track(have_pose, creep_speed, target_speed):
     return (None, target_speed) if have_pose else (0.0, creep_speed)
 
 
+def smooth_heading(prev, yaw_rate, dt, measured, tau):
+    """Given. The heading the controller steers by: turned by the gyro's yaw
+    rate over dt, then pulled toward the EKF's heading by dt / tau of the
+    gap, the short way round. The EKF's heading jumps at each GNSS fix;
+    the gyro's does not, so the car does not swerve at each jump."""
+    h = prev + yaw_rate * dt
+    h += dt / tau * ((measured - h + math.pi) % (2 * math.pi) - math.pi)
+    return (h + math.pi) % (2 * math.pi) - math.pi
+
+
 def curve_speed(path_ahead_xy, a_lat=2.0, a_brake=2.0, horizon=40.0):
     """Given. The highest speed (m/s) from which the car can still slow, at
     a_brake, to sqrt(a_lat / curvature) at every point of the next horizon

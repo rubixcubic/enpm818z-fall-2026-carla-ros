@@ -97,3 +97,15 @@ def test_curve_speed_stops_at_the_end_of_the_path():
     assert curve_speed([[0.0, 0.0], [1.0, 0.0]], 2.0, 2.0) == pytest.approx(2.0)
     # The end 58 m ahead is past the 40 m horizon: no limit yet.
     assert curve_speed(np.c_[np.arange(0.0, 60.0, 2.0), np.zeros(30)], 2.0, 2.0) == np.inf
+
+
+def test_smooth_heading_follows_the_gyro_and_drifts_to_the_ekf():
+    import math
+    from ads_pipeline.controller_core import smooth_heading
+    # The EKF heading jumps 0.1 rad; with tau 2 s, one 0.05 s step moves 0.05 / 2 of it.
+    assert smooth_heading(0.0, 0.0, 0.05, 0.1, 2.0) == pytest.approx(0.0025)
+    # The gyro turns it at once: 0.2 rad/s for 0.05 s is 0.01 rad.
+    assert smooth_heading(0.0, 0.2, 0.05, 0.01, 2.0) == pytest.approx(0.01)
+    # Across +-pi it takes the short way and stays wrapped.
+    h = smooth_heading(math.pi - 0.01, 0.0, 0.05, -math.pi + 0.01, 2.0)
+    assert abs(h) > math.pi - 0.01 and -math.pi <= h <= math.pi

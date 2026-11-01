@@ -9,6 +9,10 @@ The car's speed comes from /carla/speedometer (a wheel-speed reading), not
 from the EKF: the EKF's speed jumps at each GNSS fix and lags when the car
 brakes, and in a turn the controller then braked the car to a stop.
 
+It steers by a smoothed heading (smooth_heading): the gyro turns it, and it
+drifts toward the EKF's heading with heading_tau (2 s), so a jump in the
+EKF's heading at a GNSS fix does not swerve the car.
+
 The lookahead is lookahead_distance (5 m) or lookahead_time (1 s) of travel
 at the current speed, whichever is longer: the EKF's pose jumps a little at
 each GNSS fix, and a short lookahead turns each jump into a swerve.
@@ -33,9 +37,11 @@ from geometry_msgs.msg import PoseStamped, TwistStamped
 from nav_msgs.msg import Odometry, Path
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
+from sensor_msgs.msg import Imu
 
 from ads_pipeline.controller_core import (PIDController, creep_or_track, curve_speed,
-                                          pure_pursuit_steer, to_vehicle_cmd)
+                                          pure_pursuit_steer, smooth_heading,
+                                          to_vehicle_cmd)
 
 
 def stamp_s(header):
@@ -70,6 +76,8 @@ class ControllerNode(Node):
         self.path = np.zeros((0, 2))
         self.pose_t, self.poses = [], []         # stamps, (x, y, theta, v)
         self.speed_t, self.speeds = [], []       # the speedometer: stamps, m/s
+        self.heading_tau = p('heading_tau', 2.0)
+        self.yaw_rate, self.heading = 0.0, None  # gyro, and the heading we steer by
         self.t_last = None
         self.pub = self.create_publisher(VehicleCmd, '/control/vehicle_cmd', 10)
         self.create_subscription(Path, '/planning/path', self.on_path, 10)
@@ -79,6 +87,7 @@ class ControllerNode(Node):
         else:
             self.create_subscription(Odometry, '/localization/odom', self.on_odom, 50)
         self.create_subscription(TwistStamped, '/carla/speedometer', self.on_speedometer, 50)
+        self.create_subscription(Imu, '/carla/imu/data', self.on_imu, 50)
         self.create_subscription(TwistStamped, '/behavior/target_speed', self.on_target, 10)
 
     def on_path(self, msg):
@@ -94,6 +103,9 @@ class ControllerNode(Node):
                            yaw_of(msg.pose.pose.orientation), math.hypot(tw.x, tw.y)))
         if len(self.pose_t) > 2000:
             del self.pose_t[:1000], self.poses[:1000]
+
+    def on_imu(self, msg):
+        self.yaw_rate = msg.angular_velocity.z
 
     def on_speedometer(self, msg):
         self.speed_t.append(stamp_s(msg.header))
@@ -116,6 +128,9 @@ class ControllerNode(Node):
             delta = override
         else:
             x, y, th, _ = self.poses[i]
+            self.heading = th if self.heading is None else smooth_heading(
+                self.heading, self.yaw_rate, dt, th, self.heading_tau)
+            th = self.heading
             rear = (x - self.rear_offset * math.cos(th), y - self.rear_offset * math.sin(th))
             ld = max(self.lookahead, self.lookahead_time * v)   # longer at speed: less swerve
             delta = pure_pursuit_steer(self.path, rear, th, ld, self.wheelbase)

@@ -38,7 +38,7 @@ def generate_launch_description():
         ('planner_config', 'config/planner_config.yaml', 'Triggers and search.'),
         ('controller_config', 'config/controller_config.yaml', 'Pure Pursuit and PID.'),
         ('behavior_config', 'config/behavior_config.yaml', 'States and distances.'),
-        ('duration', '150.0', 'Seconds of simulated time before the run stops.'),
+        ('duration', '300.0', 'Seconds of simulated time before the run stops.'),
         ('cmd_timeout_s', '2.0', 'Lock step: tick anyway after this long (logged).'),
         ('out', 'results/gp4/run', 'Bag of the run (must not exist yet).'),
         ('model_type', 'yolo', "GP2: 'yolo' or 'detr'."),
