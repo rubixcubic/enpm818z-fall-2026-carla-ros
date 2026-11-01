@@ -48,6 +48,16 @@ def ahead_by_class(path_xy, tracks, lookahead_s, ped_lookahead_s, clearance):
                nearest_ahead(path_xy, peds, ped_lookahead_s, clearance))
 
 
+def stop_line_speed(dist, target_speed, a_brake=2.0, margin=1.0):
+    """Given. The speed (m/s) from which the car stops, braking at a_brake,
+    margin meters before a stop line dist meters ahead; at most target_speed,
+    0 when the line is that close or the distance is unknown. With a target
+    of 0 as soon as the line was 20 m away, our car stopped 16 m short."""
+    if math.isnan(dist) or dist <= margin:
+        return 0.0
+    return min(target_speed, math.sqrt(2.0 * a_brake * (dist - margin)))
+
+
 def lidar_blocked(points_xy, path_xy, half_width=1.1, min_points=5):
     """Given. How far along the path (m, from its first point, the car) the
     nearest LiDAR point is that lies within half_width of the path; inf when

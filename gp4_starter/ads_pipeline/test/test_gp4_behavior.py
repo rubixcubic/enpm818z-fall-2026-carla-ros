@@ -121,3 +121,13 @@ def test_pedestrians_are_predicted_1_s_ahead_vehicles_2_s():
     assert ahead_by_class(PATH, [person], 2.0, 1.0, 2.0) == math.inf
     assert ahead_by_class(PATH, [car], 2.0, 1.0, 2.0) == 10.0
     assert ahead_by_class(PATH, [person, car], 2.0, 1.0, 2.0) == 10.0
+
+
+def test_stop_line_speed_brakes_to_stop_1_m_before_the_line():
+    from ads_pipeline.behavior_core import stop_line_speed
+    # 16 m from the line: braking at 2.0 m/s^2 over 15 m allows sqrt(2 x 2.0 x 15) = 7.75 m/s.
+    assert stop_line_speed(16.0, 8.0) == pytest.approx(7.75, abs=0.01)
+    # Far away the normal target caps it; at 1 m or closer, or with no distance, stop.
+    assert stop_line_speed(40.0, 8.0) == 8.0
+    assert stop_line_speed(0.8, 8.0) == 0.0
+    assert stop_line_speed(math.nan, 8.0) == 0.0

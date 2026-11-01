@@ -10,6 +10,9 @@ over the next lookahead_s seconds (ped_lookahead_s for pedestrians) comes
 within clearance of what is left.
 
 At the goal (less than 1.5 m of path left) it holds the car: speed 0, STOP.
+For a red or yellow light, STOP brakes the car to stop stop_margin (1 m)
+before the line at stop_brake (2.0 m/s^2) (stop_line_speed), rather than
+asking for 0 m/s as soon as the line is stop_distance away.
 
 LiDAR stop check: the camera misses a vehicle close ahead (the back of a
 truck fills the image), so no track exists for it. On every LiDAR scan the
@@ -35,7 +38,8 @@ from rclpy.node import Node
 from sensor_msgs.msg import PointCloud2
 from std_msgs.msg import String
 
-from ads_pipeline.behavior_core import BehaviorFSM, ahead_by_class, lidar_blocked
+from ads_pipeline.behavior_core import (BehaviorFSM, ahead_by_class, lidar_blocked,
+                                        stop_line_speed)
 from ads_pipeline.ground_truth import parse_light
 
 
@@ -56,11 +60,13 @@ class BehaviorNode(Node):
         def p(name, default):
             return self.declare_parameter(name, default).value
 
-        self.fsm = BehaviorFSM(p('target_speed', 8.0), p('slow_speed', 3.0),
+        self.target_speed = p('target_speed', 8.0)
+        self.fsm = BehaviorFSM(self.target_speed, p('slow_speed', 3.0),
                                p('emergency_distance', 8.0), p('obstacle_distance', 15.0),
                                p('stop_distance', 20.0), p('creep_speed', 2.0))
         self.lookahead_s, self.clearance = p('lookahead_s', 2.0), p('clearance', 2.0)
         self.ped_lookahead_s = p('ped_lookahead_s', 1.0)
+        self.stop_brake, self.stop_margin = p('stop_brake', 2.0), p('stop_margin', 1.0)
         self.path, self.path_seen, self.car = np.zeros((0, 2)), False, None
         self.speed, self.points = 0.0, np.zeros((0, 2))
         self.half_width, self.front = p('lidar_half_width', 1.1), p('front_offset', 2.5)
@@ -119,6 +125,9 @@ class BehaviorNode(Node):
         state, speed = self.fsm.update(ahead, self.light[0], self.light[2],
                                        len(self.path) == 0, self.path_seen)
         name = state.name
+        if name == 'STOP' and self.light[0] in ('Red', 'Yellow'):   # brake to the line
+            speed = stop_line_speed(self.light[2], self.target_speed,
+                                    self.stop_brake, self.stop_margin)
         if self.path_seen and self.car is not None and len(self.points):
             x, y, th = self.car
             c, s_ = math.cos(th), math.sin(th)

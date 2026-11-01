@@ -8,6 +8,8 @@ behavior_node:
     creep_speed: 2.0          # m/s until the first path
     lookahead_s: 2.0          # s of constant-velocity prediction per track
     ped_lookahead_s: 1.0      # s for pedestrian tracks (their speeds are noisy)
+    stop_brake: 2.0           # m/s^2, braking to a red or yellow light's line
+    stop_margin: 1.0          # m before the line where the car stops
     clearance: 2.0            # m from the path (3.0 stopped for people on the sidewalk)
     # Given LiDAR stop check (behavior_node.py)
     lidar_half_width: 1.1     # m from the path
