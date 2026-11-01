@@ -5,6 +5,7 @@
 import math
 
 import numpy as np
+import pytest
 
 from ads_pipeline.behavior_core import BehaviorFSM, BehaviorState as S, nearest_ahead
 
@@ -76,3 +77,36 @@ def test_one_waypoint_left_is_the_goal():
     from ads_pipeline.behavior_node import goal_reached
     assert goal_reached(np.array([[5.0, 5.0]]))
     assert not goal_reached(np.zeros((0, 2)))       # no path: the no-route rule decides
+
+
+def test_lidar_points_on_the_path_block_it():
+    from ads_pipeline.behavior_core import lidar_blocked
+    # The back of a truck 6 m ahead: 20 points across the lane, 0.4 m either side.
+    truck = np.c_[np.full(20, 6.0), np.linspace(-0.4, 0.4, 20)]
+    assert lidar_blocked(truck, PATH, half_width=1.1, min_points=5) == 6.0
+
+
+def test_lidar_points_beside_the_lane_or_too_few_do_not_block():
+    from ads_pipeline.behavior_core import lidar_blocked
+    # A car in the next lane, 3.5 m to the side: outside the 1.1 m corridor.
+    beside = np.c_[np.linspace(5.0, 9.0, 20), np.full(20, 3.5)]
+    assert lidar_blocked(beside, PATH, half_width=1.1, min_points=5) == math.inf
+    # Four points on the path are noise, not an object.
+    few = np.c_[np.full(4, 6.0), np.zeros(4)]
+    assert lidar_blocked(few, PATH, half_width=1.1, min_points=5) == math.inf
+    assert lidar_blocked(np.zeros((0, 2)), PATH) == math.inf
+
+
+def test_lidar_corridor_follows_a_curved_path():
+    from ads_pipeline.behavior_core import lidar_blocked
+    # A left turn: 10 m straight, then a quarter circle of radius 10 m.
+    th = np.linspace(0, np.pi / 2, 16)[1:]
+    path = np.vstack([np.c_[np.arange(0.0, 10.1, 2.0), np.zeros(6)],
+                      np.c_[10 + 10 * np.sin(th), 10 - 10 * np.cos(th)]])
+    # Points on the arc at 45 degrees: 10 + 10 x pi / 4 = 17.9 m along the arc,
+    # 17.85 m along the path's chords.
+    on_arc = np.tile([10 + 10 * np.sin(np.pi / 4), 10 - 10 * np.cos(np.pi / 4)], (6, 1))
+    assert lidar_blocked(on_arc, path) == pytest.approx(17.85, abs=0.01)
+    # The same points straight ahead of the car, where the road does not go.
+    straight = np.c_[np.full(6, 17.0), np.zeros(6)]
+    assert lidar_blocked(straight, path) == math.inf

@@ -5,6 +5,10 @@ The speed is the behavior node's target, capped so the car can slow in
 time for the sharpest curve ahead (a_lat 2.0 m/s^2 in the curve, a_brake
 2.0 m/s^2 before it) and stop at the goal once it is within 40 m.
 
+The lookahead is lookahead_distance (5 m) or lookahead_time (1 s) of travel
+at the current speed, whichever is longer: the EKF's pose jumps a little at
+each GNSS fix, and a short lookahead turns each jump into a swerve.
+
 On each /behavior/target_speed it takes the latest pose at or before that
 stamp, moves it from the car's origin to the middle of the rear axle
 (rear_offset meters behind, from your team's values), and publishes one
@@ -46,6 +50,7 @@ class ControllerNode(Node):
             return self.declare_parameter(name, default).value
 
         self.lookahead = p('lookahead_distance', 5.0)
+        self.lookahead_time = p('lookahead_time', 1.0)
         self.wheelbase = p('wheelbase', 2.875)
         self.rear_offset = p('rear_offset', 1.4)
         # max_steer_angle: the wheel angle CARLA gives at steer = 1 (measured
@@ -97,7 +102,8 @@ class ControllerNode(Node):
         else:
             x, y, th, _ = self.poses[i]
             rear = (x - self.rear_offset * math.cos(th), y - self.rear_offset * math.sin(th))
-            delta = pure_pursuit_steer(self.path, rear, th, self.lookahead, self.wheelbase)
+            ld = max(self.lookahead, self.lookahead_time * v)   # longer at speed: less swerve
+            delta = pure_pursuit_steer(self.path, rear, th, ld, self.wheelbase)
             delta = max(-self.steer_limit, min(self.steer_limit, delta))
             k = int(np.argmin(np.hypot(self.path[:, 0] - x, self.path[:, 1] - y)))
             speed = min(speed, curve_speed(self.path[k:], self.a_lat, self.a_brake))

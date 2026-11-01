@@ -31,3 +31,20 @@ def test_completion_counts_a_detour_by_the_distance_left():
     assert completion_by_distance_left(arrived=True, left_m=50.0, route_m=500.0) == 1.0
     assert completion_by_distance_left(False, 100.0, 500.0) == pytest.approx(0.8)
     assert completion_by_distance_left(False, 700.0, 500.0) == 0.0     # farther than at the start
+
+
+def test_a_pedestrian_inside_the_moving_car_is_one_hit():
+    from tools.evaluate_run import pedestrian_hits
+    # The car at the origin heading +x at 6 m/s; a person walks across its
+    # nose and through its outline over three frames: one hit, not three.
+    frames = [((0.0, 0.0), 0.0, 6.0, [('p1', (2.0, 0.5))]),
+              ((0.6, 0.0), 0.0, 6.0, [('p1', (2.0, 0.0))]),
+              ((1.2, 0.0), 0.0, 6.0, [('p1', (2.0, -0.5))])]
+    assert pedestrian_hits(frames) == [('p1', 6.0)]
+
+
+def test_people_beside_or_walking_into_a_stopped_car_are_not_hits():
+    from tools.evaluate_run import pedestrian_hits
+    beside = [((0.0, 0.0), 0.0, 6.0, [('p1', (0.0, 2.0))])]      # 2 m to the left
+    stopped = [((0.0, 0.0), 0.0, 0.2, [('p2', (1.0, 0.0))])]     # the car stands still
+    assert pedestrian_hits(beside) == [] and pedestrian_hits(stopped) == []

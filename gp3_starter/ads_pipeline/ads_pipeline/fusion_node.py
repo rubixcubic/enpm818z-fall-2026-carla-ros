@@ -6,6 +6,8 @@ Each box is paired with the LiDAR sweep of the SAME stamp (the detector
 keeps the image's stamp). The car's pose comes from pose_topic:
 /localization/pose (your EKF) or /ground_truth/ego (the truth, for the
 error budget in the report). The array is published even when empty.
+A pedestrian box is placed by ground_point (camera only): CARLA's LiDAR
+returns almost no points on people.
 
 Yours (fusion_core.py): associate_lidar_to_detection and to_map.
 """
@@ -141,9 +143,13 @@ class FusionNode(Node):
                 if bh is None:
                     continue
                 box, hypothesis = bh
-                c = fusion_core.associate_lidar_to_detection(
-                    box, kept, uv, depth, self.min_range, self.max_range,
-                    self.eps, self.min_pts)
+                if hypothesis.class_id == 'pedestrian':           # the LiDAR misses people
+                    c = fusion_core.ground_point(box, self.K, self.T_cam_lidar,
+                                                 self.T_ego_lidar[2, 3], self.max_range)
+                else:
+                    c = fusion_core.associate_lidar_to_detection(
+                        box, kept, uv, depth, self.min_range, self.max_range,
+                        self.eps, self.min_pts)
                 if c is None:
                     continue
                 p = fusion_core.to_map(c, self.T_ego_lidar, pose)

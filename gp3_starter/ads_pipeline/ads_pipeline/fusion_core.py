@@ -35,6 +35,26 @@ def project_keep_points(points_ros, K, T_cam_lidar, image_w, image_h):
     return kept, np.stack([u[on], v[on]], axis=1), cam[2, front][on]
 
 
+def ground_point(box, K, T_cam_lidar, lidar_height, max_range):
+    """Given. Where a person's feet touch the road, in the LiDAR frame (ROS
+    axes), from the bottom center of their box; None when that pixel looks
+    above the horizon or the point is beyond max_range.
+
+    CARLA's ray-cast LiDAR returns almost no points on people (it hits a
+    simplified collision shape), so a pedestrian box is placed with the
+    camera alone: the ray through the pixel meets the flat road, which sits
+    lidar_height below the LiDAR.
+    """
+    u, v = (box[0] + box[2]) / 2.0, box[3]
+    T_inv = np.linalg.inv(T_cam_lidar)
+    origin = T_inv[:3, 3]                                   # camera center, CARLA axes
+    ray = T_inv[:3, :3] @ np.linalg.solve(K, np.array([u, v, 1.0]))
+    if ray[2] >= -1e-6:                                     # level or upward: no road
+        return None
+    p = (origin + (-lidar_height - origin[2]) / ray[2] * ray) * ROS_TO_CARLA
+    return None if np.hypot(p[0], p[1]) > max_range else p
+
+
 def remove_ground(points, lidar_height, clearance=0.3):
     """Given. Drop the points within clearance (m) of the road, which sits
     lidar_height below the LiDAR. Without it, the road in front of a

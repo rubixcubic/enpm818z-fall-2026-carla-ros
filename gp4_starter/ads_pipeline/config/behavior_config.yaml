@@ -8,3 +8,10 @@ behavior_node:
     creep_speed: 2.0          # m/s until the first path
     lookahead_s: 2.0          # s of constant-velocity prediction per track
     clearance: 3.0            # m from the path
+    # Given LiDAR stop check (behavior_node.py)
+    lidar_half_width: 1.1     # m from the path
+    front_offset: 2.5         # m from the car's origin to its front
+    a_brake: 4.0              # m/s^2 assumed for the stopping distance
+    lidar_margin: 2.0         # m added to the stopping distance
+    ground_clearance: 0.3     # m above the road
+    max_height: 2.5           # m above the road

@@ -49,3 +49,13 @@ def test_margin_counts_points_just_outside_a_thin_box():
     box = dict(center=(0.0, 0.0, 0.93), size=(0.38, 0.38, 1.86), yaw=0.0)
     assert points_in_box(pts, **box) == 0
     assert points_in_box(pts, **box, margin=0.5) == 1
+
+
+def test_pedestrians_count_by_range_vehicles_by_lidar_points():
+    from tools.fusion_eval import counts_as_visible
+    # CARLA's LiDAR returns no points on people: a person counts within 30 m.
+    assert counts_as_visible('pedestrian', n_points=0, ground_range=25.0)
+    assert not counts_as_visible('pedestrian', n_points=40, ground_range=35.0)
+    # A vehicle still needs 5 LiDAR points in its box.
+    assert counts_as_visible('vehicle', n_points=5, ground_range=50.0)
+    assert not counts_as_visible('vehicle', n_points=4, ground_range=10.0)

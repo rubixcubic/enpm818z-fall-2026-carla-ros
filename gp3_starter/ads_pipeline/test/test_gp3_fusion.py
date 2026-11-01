@@ -98,3 +98,31 @@ def test_a_detection_without_a_hypothesis_is_skipped():
     d.results.append(h)
     box, hyp = box_and_hypothesis(d)
     assert box == [90.0, 45.0, 110.0, 55.0] and hyp.class_id == 'vehicle'
+
+
+def ground_rig():
+    """A 1280 x 720 camera (90 deg FOV) 1.5 m ahead of the LiDAR, 1.6 m up,
+    pitched 5 deg down; the LiDAR 2.4 m above the road."""
+    K = build_intrinsic_matrix(1280, 720, 90.0)
+    T = build_extrinsic((0.0, 0.0, 2.4), (1.5, 0.0, 1.6), -5.0)
+    return K, T
+
+
+def test_ground_point_finds_a_persons_feet_on_the_road():
+    K, T = ground_rig()
+    feet = np.array([[12.0, 1.0, -2.4]])                # LiDAR frame, ROS axes (y left)
+    _, uv, _ = F.project_keep_points(feet, K, T, 1280, 720)
+    u, v = uv[0]
+    p = F.ground_point([u - 10, v - 60, u + 10, v], K, T, lidar_height=2.4, max_range=60.0)
+    # Pixels are whole numbers: one pixel at 12 m moves the point by under 0.1 m.
+    assert p == pytest.approx([12.0, 1.0, -2.4], abs=0.15)
+
+
+def test_ground_point_gives_none_above_the_horizon_or_too_far():
+    K, T = ground_rig()
+    # The bottom edge 100 px above the image center looks above the horizon.
+    assert F.ground_point([600, 100, 680, 260], K, T, 2.4, 60.0) is None
+    far = np.array([[80.0, 0.0, -2.4]])
+    _, uv, _ = F.project_keep_points(far, K, T, 1280, 720)
+    u, v = uv[0]
+    assert F.ground_point([u - 2, v - 8, u + 2, v], K, T, 2.4, 60.0) is None

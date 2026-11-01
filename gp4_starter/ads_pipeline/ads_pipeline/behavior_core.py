@@ -37,6 +37,31 @@ def nearest_ahead(path_xy, tracks, lookahead_s, clearance, dt=0.1):
     return best
 
 
+def lidar_blocked(points_xy, path_xy, half_width=1.1, min_points=5):
+    """Given. How far along the path (m, from its first point, the car) the
+    nearest LiDAR point is that lies within half_width of the path; inf when
+    fewer than min_points lie there. points_xy: above-ground LiDAR points,
+    map frame. It sees what the camera misses, such as the back of a truck
+    that fills the whole image."""
+    pts = np.asarray(points_xy, dtype=float).reshape(-1, 2)
+    path = np.asarray(path_xy, dtype=float)
+    if len(path) < 2 or len(pts) < min_points:
+        return math.inf
+    a, b = path[:-1], path[1:]
+    ab = b - a
+    seg = np.hypot(ab[:, 0], ab[:, 1])
+    s0 = np.r_[0.0, np.cumsum(seg)][:-1]
+    rel = pts[:, None, :] - a[None, :, :]                       # points x segments
+    t = np.clip((rel * ab[None]).sum(axis=2) / np.maximum(seg ** 2, 1e-9)[None], 0.0, 1.0)
+    d = np.linalg.norm(rel - t[..., None] * ab[None], axis=2)
+    k = np.argmin(d, axis=1)
+    i = np.arange(len(pts))
+    inside = d[i, k] <= half_width
+    if inside.sum() < min_points:
+        return math.inf
+    return float((s0[k] + t[i, k] * seg[k])[inside].min())
+
+
 class BehaviorFSM:
     def __init__(self, target_speed=8.0, slow_speed=3.0, emergency_dist=8.0,
                  obstacle_dist=15.0, stop_dist=20.0, creep_speed=2.0):

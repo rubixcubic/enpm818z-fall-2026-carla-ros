@@ -72,7 +72,7 @@ def generate_launch_description():
                                                 'map_file': LC('map_file'),
                                                 'points_file': LC('points_file')}, pose]),
         Node(package='ads_pipeline', executable='behavior_node', output='screen',
-             parameters=[LC('behavior_config'), pose]),
+             parameters=[LC('behavior_config'), {'rig_config': LC('config')}, pose]),
         Node(package='ads_pipeline', executable='controller_node', output='screen',
              parameters=[LC('controller_config'), pose]),
     ]

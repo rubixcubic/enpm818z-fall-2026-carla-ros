@@ -7,6 +7,9 @@ From the run's bag, all from CARLA's ground truth:
   1 minus the road distance left to the goal (on the map's graph, from
   where the car ended) over the first route's length, so a detour counts;
 - collisions: one per other actor, events within 1 s of each other counted once;
+- pedestrian hits: CARLA's collision sensor misses people, so a hit is a
+  person whose center enters the car's outline (2.5 m ahead and behind,
+  1.1 m to each side) while the car moves faster than 0.5 m/s; one per person;
 - red-light violations: the car leaves a light's trigger area while the
   light is red and the car moves faster than 1 m/s;
 - cross-track error: the car's distance to the current planned path, mean
@@ -20,6 +23,22 @@ import math
 import os
 
 import numpy as np
+
+
+def pedestrian_hits(frames, half_length=2.5, half_width=1.1, min_speed=0.5):
+    """[(person ID, car speed at the first contact)], one per person.
+    frames: [((x, y), yaw, speed, [(person ID, (x, y))])], map frame."""
+    hits = {}
+    for (cx, cy), yaw, v, people in frames:
+        if v <= min_speed:
+            continue
+        c, s = math.cos(yaw), math.sin(yaw)
+        for pid, (px, py) in people:
+            dx, dy = px - cx, py - cy
+            if (pid not in hits and abs(c * dx + s * dy) <= half_length
+                    and abs(-s * dx + c * dy) <= half_width):
+                hits[pid] = v
+    return list(hits.items())
 
 
 def completion_by_distance_left(arrived, left_m, route_m):
@@ -83,7 +102,8 @@ def main():
     ap.add_argument('--map-file', default='ads_pipeline/maps/Town01.xodr')
     a = ap.parse_args()
     d = bag_io.read(a.bag, ['/ground_truth/ego', '/ground_truth/traffic_light',
-                            '/ground_truth/collision', '/planning/path'])
+                            '/ground_truth/collision', '/planning/path',
+                            '/ground_truth/objects'])
     ego = d['/ground_truth/ego']
     driven = np.array([[m.pose.pose.position.x, m.pose.pose.position.y] for _, m in ego])
     speed = np.array([math.hypot(m.twist.twist.linear.x, m.twist.twist.linear.y) for _, m in ego])
@@ -108,6 +128,16 @@ def main():
         lights.append((t, state, at, speed_at.get(round(t, 3), 0.0)))
     events = [(float(m.data.split()[0]), m.data.split()[1]) for _, m in d['/ground_truth/collision']]
     events = [e for e in events if e[0] <= t_end]     # CARLA's clock, as the stamps
+    people = {round(t, 3): [(o.id, (o.bbox.center.position.x, o.bbox.center.position.y))
+                            for o in m.detections
+                            if o.results and o.results[0].hypothesis.class_id == 'pedestrian']
+              for t, m in d['/ground_truth/objects']}
+    frames = []
+    for (t, m), v in zip(ego, speed):
+        q = m.pose.pose.orientation
+        yaw = math.atan2(2 * (q.w * q.z + q.x * q.y), 1 - 2 * (q.y * q.y + q.z * q.z))
+        frames.append(((m.pose.pose.position.x, m.pose.pose.position.y), yaw, v,
+                       people.get(round(t, 3), [])))
     ctes, j = [], 0
     for (t, _), (x, y) in zip(ego, driven):
         while j + 1 < len(paths) and paths[j + 1][0] <= t:
@@ -119,6 +149,7 @@ def main():
             arrived, distance_left(a.map_file, driven[-1], route[-1]),
             float(np.hypot(*np.diff(route, axis=0).T).sum())) if len(route) else 0.0),
         'collisions': collision_count(events),
+        'pedestrian_hits': len(pedestrian_hits(frames)),
         'red_light_violations': red_light_violations(lights),
         'cross_track_mean_m': float(np.mean(ctes)) if ctes else float('nan'),
         'cross_track_max_m': float(np.max(ctes)) if ctes else float('nan'),

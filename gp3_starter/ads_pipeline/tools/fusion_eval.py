@@ -8,8 +8,10 @@ class, the mean position error of the matches, overall and by distance from
 the car (0 to 20, 20 to 40, 40 to 80 m), and the share of true boxes
 matched. Distances are on the ground (x, y). Only true objects the sensors
 can see count: within the camera's horizontal field of view and max_range
-of it (in_view), with at least MIN_POINTS LiDAR points of the same sweep
-inside the box (visible_ids, as nuScenes drops boxes with no LiDAR points).
+of it (in_view), and for a vehicle at least MIN_POINTS LiDAR points of the
+same sweep inside the box (visible_ids, as nuScenes drops boxes with no
+LiDAR points). CARLA's LiDAR returns no points on people, so a pedestrian
+counts within PED_RANGE of the car instead (counts_as_visible).
 The match radius is 3 m: the LiDAR sees a car's near side, so the cluster's
 center falls short of the box's center, by up to half the car's length.
 """
@@ -25,6 +27,7 @@ CLASSES = ('vehicle', 'pedestrian')
 OLD_NAMES = {'car': 'vehicle', 'person': 'pedestrian'}   # first test bag
 MIN_POINTS = 5            # = fusion's DBSCAN minimum
 BOX_MARGIN = 0.5          # m: a sweep takes 0.05 s, the car moves up to 0.4 m in it
+PED_RANGE = 30.0          # m, chosen: a 1.8 m person at 30 m is 27 to 58 px tall on the rigs
 
 
 def in_view(xy, ego_xy, ego_yaw, cam_xy, fov_deg, max_range):
@@ -50,9 +53,18 @@ def points_in_box(pts, center, size, yaw, margin=0.0):
                       & (np.abs(d[:, 2]) <= size[2] / 2)))
 
 
+def counts_as_visible(cls, n_points, ground_range):
+    """Whether a true object counts: a pedestrian within PED_RANGE, any
+    other object with at least MIN_POINTS LiDAR points in its box."""
+    if cls == 'pedestrian':
+        return ground_range <= PED_RANGE
+    return n_points >= MIN_POINTS
+
+
 def visible_ids(drive_bag, rig):
-    """{stamp: set of CARLA IDs with at least MIN_POINTS LiDAR points in
-    their box}, from the drive bag (LiDAR, true pose, true boxes)."""
+    """{stamp: set of CARLA IDs that count (counts_as_visible): vehicles
+    with at least MIN_POINTS LiDAR points in their box, pedestrians within
+    PED_RANGE}, from the drive bag (LiDAR, true pose, true boxes)."""
     import yaml
     import sensor_msgs_py.point_cloud2 as pc2
     from tools import bag_io
@@ -75,10 +87,13 @@ def visible_ids(drive_bag, rig):
         seen = set()
         for b in boxes[k].detections:
             bc, bs = b.bbox.center.position, b.bbox.size
+            cls = b.results[0].hypothesis.class_id if b.results else ''
+            cls = OLD_NAMES.get(cls, cls)
             near = world[np.hypot(world[:, 0] - bc.x, world[:, 1] - bc.y) < 6.0]
-            if points_in_box(near, (bc.x, bc.y, bc.z), (bs.x, bs.y, bs.z),
-                             _yaw(b.bbox.center.orientation),
-                             margin=BOX_MARGIN) >= MIN_POINTS:
+            n = 0 if cls == 'pedestrian' else points_in_box(
+                near, (bc.x, bc.y, bc.z), (bs.x, bs.y, bs.z),
+                _yaw(b.bbox.center.orientation), margin=BOX_MARGIN)
+            if counts_as_visible(cls, n, math.hypot(bc.x - p.x, bc.y - p.y)):
                 seen.add(b.id)
         out[k] = seen
     return out
