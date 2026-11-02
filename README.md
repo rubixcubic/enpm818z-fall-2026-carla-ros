@@ -38,11 +38,11 @@ What is given, and what is not:
 
 | Given | Yours |
 |---|---|
-| `l2_carla_demo/conversions.py` — every CARLA measurement to its ROS 2 message, with the axis flip and the timestamps handled | `sensor_manager.py` — spawning, YAML parameters, TF, clean shutdown (9 TODOs) |
-| `lidar_projection.py` — intrinsics, projection maths, depth colouring, overlay, and a driver that produces all three required images | `build_extrinsic()` — about six lines, and the whole point of Task 5 |
-| `launch/sensors_launch.py` — complete, and the pattern to copy | `launch/record_launch.py` — Task 3 |
-| `package.xml`, `setup.py` — dependencies declared | entry points, team details |
-| `rviz/ads_pipeline.rviz` — displays laid out | connect the topics, Task 4 |
+| `l2_carla_demo/conversions.py`: every CARLA measurement to its ROS 2 message, with the axis flip and the timestamps handled | `sensor_manager.py`: spawning, YAML parameters, TF, clean shutdown (9 TODOs) |
+| `lidar_projection.py`: intrinsics, projection maths, depth colouring, overlay, and a driver that produces all three required images | `build_extrinsic()`: about six lines, and the whole point of Task 5 |
+| `launch/sensors_launch.py`: complete, and the pattern to copy | `launch/record_launch.py`: Task 3 |
+| `package.xml`, `setup.py`: dependencies declared | entry points, team details |
+| `rviz/ads_pipeline.rviz`: displays laid out | connect the topics, Task 4 |
 
 **The conversions are not duplicated.** `ads_pipeline` imports them from
 `l2_carla_demo`, which is the same code the L2 lecture demo runs. Writing
