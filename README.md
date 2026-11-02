@@ -13,6 +13,8 @@ ROS 2 packages for ENPM818Z.
 | `l8_foxglove_demo` | The lecture 8 reading, Foxglove: one launch file starts the L2 bridge, `foxglove_bridge` and a node that spawns traffic near the AV and publishes every car's true box and its constant-velocity prediction, 5 s ahead, with the speeds and a warning when a prediction comes within 2 m of the AV's. `foxglove/l8_layout.json` is the layout to import. See its README. |
 | `gp1_starter/ads_pipeline` | **The GP1 starter.** The cumulative ADS pipeline that GP1 through GP4 build out. Copy it into your team repository; this copy carries a `COLCON_IGNORE` and is never built here. |
 | `gp2_starter/ads_pipeline` | **The GP2 starter.** The files GP2 adds to your GP1 package: ground truth, the detector node, detector grading and an image tracker, with tests and tools. Copy them into your team's `ads_pipeline`; this copy carries a `COLCON_IGNORE` and is never built here. |
+| `gp3_starter/ads_pipeline` | **The GP3 starter.** The files GP3 adds to your package: the EKF and its localization node, camera-LiDAR fusion, a tracker on the map, ground truth and traffic for the recording, with tests and tools. Copy them into your team's `ads_pipeline`; this copy carries a `COLCON_IGNORE` and is never built here. |
+| `ads_msgs` | The messages GP3's tracker publishes (`/perception/tracks`), which GP4 reads. Copy it into your workspace's `src/` next to your package. |
 
 ## Build
 
@@ -69,6 +71,23 @@ given (download link on Canvas): GP2 needs no CARLA.
 | `detector_node.py`: the node; `launch/perception_launch.py`: every parameter a launch argument | `detection_eval.py`: `match_frame`, `pr_curve`, `average_precision`, `mean_ap` (Task 3) |
 | `tools/run_detector.py`, `grade.py`, `check_coco.py`, `show_frame.py`, `replay_drive.py` (a drive played as the camera topic, for the live node) | `box_tracker.py`: `BoxKalman`, `iou_cost`, `associate`, `BoxTracker.step` (Task 4) |
 | `test/test_gp2_*.py`: the checks for every function you write | the report (Task 5) |
+
+## For GP3
+
+GP3 adds files to the package your team built in GP1 and GP2, on a new `gp3`
+branch. Copy the contents of `gp3_starter/ads_pipeline/` into your team's
+`ads_pipeline/`, and `ads_msgs/` into your workspace's `src/`; the GP3 page
+shows the exact commands and your team's values (GNSS antenna and outage
+window). GP3 records one 90 s drive with CARLA (Task 1); the other tasks run
+on that recording.
+
+| Given | Yours |
+|---|---|
+| `ground_truth.py`, `traffic.py`: the car's true pose and the true boxes for grading, and the same traffic for the same seed | `sensor_manager.py`: the recording parameters (Task 1) |
+| `geo.py`, `gnss_outage.py`: latitude and longitude to the map frame, and your team's GNSS outage | `ekf_core.py`: `f`, `F_jacobian`, `h`, `H_jacobian`; `localization_node.py`: `on_imu`, `on_gnss` (Task 2) |
+| `ekf_core.py`: `predict`, `update`; `fusion_core.py`: the projection, ground removal and clustering; `fusion_node.py`, `tracker_node.py`: the nodes | `fusion_core.py`: `associate_lidar_to_detection`, `to_map` (Task 3) |
+| `tools/ape.py`, `fusion_eval.py`, `track_eval.py`: score a run against the ground truth | `map_tracker.py`: `MapKalman`, `mahalanobis_cost`, `MapTracker.step` (Task 4) |
+| `test/test_gp3_*.py`: the checks for every function you write | the report (Task 5) |
 
 ## Before you start
 
