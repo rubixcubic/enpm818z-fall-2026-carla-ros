@@ -20,6 +20,7 @@ calls world.tick() from a timer. Do not run a second client that also ticks
 Topics (frame "map": x as CARLA's x, y as minus CARLA's y, as in the slides):
     /l9/road        the lanes of the stretch (latched)
     /l9/plan        the candidates, the cars, the AV's circles and the costs
+    /l9/camera      what a camera behind and above the AV sees (sensor_msgs/Image, bgr8)
 """
 import math
 import os
@@ -28,9 +29,12 @@ import numpy as np
 import rclpy
 from ament_index_python.packages import get_package_share_directory
 from rcl_interfaces.msg import SetParametersResult
+from rclpy.exceptions import ParameterUninitializedException
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
+from rclpy.parameter import Parameter
 from rclpy.qos import QoSDurabilityPolicy, QoSProfile
+from sensor_msgs.msg import Image
 from visualization_msgs.msg import Marker, MarkerArray
 
 import carla
@@ -62,9 +66,18 @@ class PlanningDemo(Node):
         self.declare_parameter("period", 0.5)          # s between plans, as the slides
         self.declare_parameter("speed", pl.SCENE["speed"])
         self.declare_parameter("car_s", pl.SCENE["car_s"])
+        # several parked cars: a flat list [s1, d1, s2, d2, ...] in meters (launch file
+        # demo_obstacles.launch.py); unset, the one car of the slides at car_s
+        self.declare_parameter("obstacles", Parameter.Type.DOUBLE_ARRAY)
         self.declare_parameter("vehicle", "vehicle.tesla.model3")
         self.declare_parameter("parked", "vehicle.audi.a2")
         self.declare_parameter("follow_camera", True)
+        # a chase camera on the AV, shown in RViz's Camera panel (CARLA renders it even
+        # with -RenderOffScreen)
+        self.declare_parameter("camera", True)
+        self.declare_parameter("camera_width", 800)
+        self.declare_parameter("camera_height", 450)
+        self.declare_parameter("camera_fov", 90.0)
         for n in WEIGHT_NAMES:
             self.declare_parameter("w_" + n, pl.WEIGHTS[n])
 
@@ -73,6 +86,16 @@ class PlanningDemo(Node):
         self.speed = self.get_parameter("speed").value
         self.weights = {n: self.get_parameter("w_" + n).value for n in WEIGHT_NAMES}
         self.scene = dict(pl.SCENE, car_s=self.get_parameter("car_s").value)
+        try:
+            flat = self.get_parameter("obstacles").value
+        except ParameterUninitializedException:     # declared with a type only: unset
+            flat = None
+        if flat and len(flat) % 2 == 0:
+            self.obstacles = [(float(flat[k]), float(flat[k + 1])) for k in range(0, len(flat), 2)]
+            self.several = True
+        else:
+            self.obstacles = [(self.scene["car_s"], self.scene["car_d"])]
+            self.several = False
 
         share = get_package_share_directory("l9_planning_demo")
         self.ref = pl.load_scene(os.path.join(share, "data", "l9_scene.npz"))
@@ -81,6 +104,7 @@ class PlanningDemo(Node):
         latched = QoSProfile(depth=1, durability=QoSDurabilityPolicy.TRANSIENT_LOCAL)
         self.pub_road = self.create_publisher(MarkerArray, "/l9/road", latched)
         self.pub_plan = self.create_publisher(MarkerArray, "/l9/plan", 10)
+        self.pub_camera = self.create_publisher(Image, "/l9/camera", 2)
 
         self.actors = []
         self.original_settings = None
@@ -141,16 +165,44 @@ class PlanningDemo(Node):
         car_bp = bp_lib.find(self.get_parameter("parked").value)
         far = carla.Transform(carla.Location(x=0.0, y=0.0, z=500.0))
         self.av = self.world.spawn_actor(av_bp, far)
-        self.car = self.world.spawn_actor(car_bp, carla.Transform(carla.Location(x=10.0, y=0.0, z=500.0)))
-        for a in (self.av, self.car):
+        self.cars = [self.world.spawn_actor(car_bp, carla.Transform(carla.Location(x=10.0 * (k + 1), y=0.0, z=500.0)))
+                     for k in range(len(self.obstacles))]
+        for a in [self.av] + self.cars:
             a.set_simulate_physics(False)   # placed, not driven
             self.actors.append(a)
         self._place_car()
+        if self.get_parameter("camera").value:
+            cam_bp = bp_lib.find("sensor.camera.rgb")
+            cam_bp.set_attribute("image_size_x", str(self.get_parameter("camera_width").value))
+            cam_bp.set_attribute("image_size_y", str(self.get_parameter("camera_height").value))
+            cam_bp.set_attribute("fov", str(self.get_parameter("camera_fov").value))
+            # 7 m behind the body center, 3.5 m up, looking a little down: the AV, the
+            # road ahead and the parked car when it comes up
+            mount = carla.Transform(carla.Location(x=-7.0, z=3.5), carla.Rotation(pitch=-12.0))
+            self.camera = self.world.spawn_actor(cam_bp, mount, attach_to=self.av)
+            self.actors.append(self.camera)
+            self.camera.listen(self._on_image)
+
+    def _on_image(self, image) -> None:
+        """A CARLA frame (BGRA) as a ROS image (bgr8: the alpha channel dropped)."""
+        bgra = np.frombuffer(image.raw_data, dtype=np.uint8).reshape(image.height, image.width, 4)
+        msg = Image()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.header.frame_id = "camera"
+        msg.height, msg.width = image.height, image.width
+        msg.encoding = "bgr8"
+        msg.is_bigendian = 0
+        msg.step = image.width * 3
+        msg.data = np.ascontiguousarray(bgra[:, :, :3]).tobytes()
+        self.pub_camera.publish(msg)
 
     def _place_car(self) -> None:
-        c = pl.parked_car(self.ref, self.scene)
-        self.car_pose = c
-        self.car.set_transform(self._transform(c["x"], c["y"], c["heading"]))
+        """Every parked car where its (s, d) says. The planner is given these same boxes:
+        nothing detects them (no perception in this demo)."""
+        self.car_poses = [pl.parked_car(self.ref, dict(self.scene, car_s=s, car_d=d))
+                          for s, d in self.obstacles]
+        for car, c in zip(self.cars, self.car_poses):
+            car.set_transform(self._transform(c["x"], c["y"], c["heading"]))
 
     # ---------------------------------------------------------------- planning
     def _restart(self) -> None:
@@ -159,9 +211,13 @@ class PlanningDemo(Node):
 
     def _plan(self) -> None:
         """Plan from (s0, state): every candidate scored, the cheapest first."""
-        obstacles = [pl.parked_car(self.ref, self.scene)]
-        self.cands = pl.plan(self.ref, self.s0, self.state, obstacles, speed=self.speed,
-                             weights=self.weights, scene=self.scene)
+        # the stop candidate keeps the right lane: it stops behind the nearest car ahead in
+        # that lane (none: no stop candidate)
+        lane = self.ref["lane_width"] / 2
+        ahead = [s for s, d in self.obstacles if abs(d) < lane and s > self.s0]
+        scene = dict(self.scene, car_s=min(ahead) if ahead else self.s0 + 1e3)
+        self.cands = pl.plan(self.ref, self.s0, self.state, self.car_poses, speed=self.speed,
+                             weights=self.weights, scene=scene)
         self.best = self.cands[0][0]
         self.t_plan = 0.0
         self._publish_plan()
@@ -211,9 +267,13 @@ class PlanningDemo(Node):
                     return SetParametersResult(successful=False, reason="weights are 0 or more")
                 self.weights[p.name[2:]] = float(p.value)
             elif p.name == "car_s":
+                if self.several:
+                    return SetParametersResult(successful=False,
+                                               reason="car_s moves the one car; this run has several")
                 self.scene["car_s"] = float(p.value)
+                self.obstacles = [(self.scene["car_s"], self.scene["car_d"])]
                 self._place_car()
-        self.get_logger().info(f"weights {self.weights}, parked car at s = {self.scene['car_s']} m; "
+        self.get_logger().info(f"weights {self.weights}, parked cars at s = {[s for s, _ in self.obstacles]} m; "
                                "they take effect at the next plan")
         return SetParametersResult(successful=True)
 
@@ -282,9 +342,9 @@ class PlanningDemo(Node):
             m.scale.x = m.scale.y = 2 * r
             m.scale.z = 0.04
             out.markers.append(m)
-        c = self.car_pose
-        out.markers.append(self._box("car", 0, c["x"], c["y"], c["heading"], rgb("car", 0.9),
-                                     pl.AV["length"] / 2))
+        for k, c in enumerate(self.car_poses):
+            out.markers.append(self._box("car", k, c["x"], c["y"], c["heading"], rgb("car", 0.9),
+                                         pl.AV["length"] / 2))
         # the costs of the three cheapest, beside the AV
         lines = []
         for p, sc in self.cands[:3]:
@@ -302,6 +362,8 @@ class PlanningDemo(Node):
     def destroy_node(self) -> None:
         for a in self.actors:
             if a is not None and a.is_alive:
+                if isinstance(a, carla.Sensor):
+                    a.stop()                      # no callback after the node is gone
                 a.destroy()
         if self.original_settings is not None:
             self.world.apply_settings(self.original_settings)
