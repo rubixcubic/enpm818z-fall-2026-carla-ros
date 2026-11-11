@@ -6,7 +6,7 @@ Project LiDAR points onto the camera image using the known extrinsic between
 the two sensors.
 
 Everything here is given to you EXCEPT build_extrinsic. That one function is
-the whole point of the task, and it is about six lines.
+the whole point of the task, and it is about eight lines.
 """
 
 import cv2

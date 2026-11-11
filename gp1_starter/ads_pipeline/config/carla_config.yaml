@@ -6,9 +6,9 @@
 # "change the blueprint without editing source" requirement without it.
 #
 # IMPORTANT: the mount transforms below are PLACEHOLDERS. Replace them with
-# your team's assigned rig from the GP1 page, then derive the exact numbers
-# from vehicle.bounding_box.extent rather than copying them blindly, since
-# blueprints differ in size.
+# your team's assigned rig from the GP1 page, exactly as printed there. The
+# grader recomputes your Task 5 extrinsic from that row, so a mount you
+# adjusted by hand produces a matrix that does not match.
 # ---------------------------------------------------------------------------
 sensor_manager:
   ros__parameters:
