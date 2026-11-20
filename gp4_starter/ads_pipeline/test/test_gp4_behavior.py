@@ -1,4 +1,4 @@
-"""GP4 Task 4 tests: the behavior state machine and what counts as ahead.
+"""GP4 Task 4 tests: the behavior tree and what counts as ahead.
 
     cd ads_pipeline && python3 -m pytest test/test_gp4_behavior.py -v
 """
@@ -7,14 +7,15 @@ import math
 import numpy as np
 import pytest
 
-from ads_pipeline.behavior_core import BehaviorFSM, BehaviorState as S, nearest_ahead
+from ads_pipeline.behavior_core import (Action, BehaviorState as S, BehaviorTree, Fallback,
+                                        nearest_ahead)
 
 PATH = np.c_[np.arange(0.0, 61.0, 2.0), np.zeros(31)]        # x 0 to 60 m
 
 
-def fsm():
-    return BehaviorFSM(target_speed=8.0, slow_speed=3.0, emergency_dist=8.0,
-                       obstacle_dist=15.0, stop_dist=20.0, creep_speed=2.0)
+def tree():
+    return BehaviorTree(target_speed=8.0, slow_speed=3.0, emergency_dist=8.0,
+                        obstacle_dist=15.0, stop_dist=20.0, creep_speed=2.0)
 
 
 def walker(x, y, vx, vy):
@@ -34,29 +35,43 @@ def test_object_behind_the_car_does_not_count():
 
 
 def test_before_the_first_path_the_car_creeps():
-    state, speed = fsm().update(math.inf, 'Red', 5.0, path_empty=True, path_seen=False)
+    state, speed = tree().tick(math.inf, 'Red', 5.0, path_empty=True, path_seen=False)
     assert (state, speed) == (S.LANE_FOLLOW, 2.0)
 
 
 def test_no_route_after_one_was_seen_stops_the_car():
-    assert fsm().update(math.inf, 'Green', math.nan, True, True)[0] == S.EMERGENCY_STOP
+    assert tree().tick(math.inf, 'Green', math.nan, True, True)[0] == S.EMERGENCY_STOP
 
 
 def test_safer_state_wins():
-    f = fsm()
-    assert f.update(5.0, 'Red', 10.0, False, True)[0] == S.EMERGENCY_STOP
-    assert f.update(12.0, 'Red', 10.0, False, True)[0] == S.STOP
-    assert f.update(12.0, 'Green', math.nan, False, True)[0] == S.OBSTACLE_AVOIDANCE
-    assert f.update(math.inf, 'Green', math.nan, False, True) == (S.LANE_FOLLOW, 8.0)
+    t = tree()
+    assert t.tick(5.0, 'Red', 10.0, False, True)[0] == S.EMERGENCY_STOP
+    assert t.tick(12.0, 'Red', 10.0, False, True)[0] == S.STOP
+    assert t.tick(12.0, 'Green', math.nan, False, True)[0] == S.OBSTACLE_AVOIDANCE
+    assert t.tick(math.inf, 'Green', math.nan, False, True) == (S.LANE_FOLLOW, 8.0)
 
 
 def test_red_light_ahead_stops_and_behind_does_not():
-    assert fsm().update(math.inf, 'Red', 15.0, False, True)[0] == S.STOP
-    assert fsm().update(math.inf, 'Red', -0.5, False, True)[0] == S.LANE_FOLLOW
+    assert tree().tick(math.inf, 'Red', 15.0, False, True)[0] == S.STOP
+    assert tree().tick(math.inf, 'Red', -0.5, False, True)[0] == S.LANE_FOLLOW
 
 
 def test_slow_down_for_an_object_in_range():
-    assert fsm().update(12.0, 'Green', math.nan, False, True) == (S.OBSTACLE_AVOIDANCE, 3.0)
+    assert tree().tick(12.0, 'Green', math.nan, False, True) == (S.OBSTACLE_AVOIDANCE, 3.0)
+
+
+def last_action(node):
+    """The Action at the end of a branch (a bare Action is its own branch)."""
+    while not isinstance(node, Action):
+        node = node.children[-1]
+    return node
+
+
+def test_the_root_is_a_fallback_that_tries_the_safest_branch_first():
+    root = tree().build_tree()
+    assert isinstance(root, Fallback)
+    assert [last_action(branch).state for branch in root.children] == [
+        S.EMERGENCY_STOP, S.STOP, S.OBSTACLE_AVOIDANCE, S.LANE_FOLLOW]
 
 
 def test_goal_reached_holds_the_car():

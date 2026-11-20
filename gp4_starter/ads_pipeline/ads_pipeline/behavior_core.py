@@ -1,7 +1,9 @@
-"""GP4 Task 4: the behavior state machine.
+"""GP4 Task 4: the behavior tree.
 
-Four states. When more than one condition holds, the safer state wins:
-EMERGENCY_STOP, then STOP, then OBSTACLE_AVOIDANCE, then LANE_FOLLOW.
+A tree of four branches decides the state and the target speed. When more
+than one condition holds, the safer branch wins, because the root tries the
+branches in order, safest first: EMERGENCY_STOP, then STOP, then
+OBSTACLE_AVOIDANCE, then LANE_FOLLOW.
 """
 import math
 from enum import Enum, auto
@@ -14,6 +16,65 @@ class BehaviorState(Enum):
     STOP = auto()
     OBSTACLE_AVOIDANCE = auto()
     EMERGENCY_STOP = auto()
+
+
+# Given: the four node types of L10's behavior_tree.py. A node's tick(bb)
+# returns a status. bb is the blackboard, a dict that holds what the car
+# senses now; the leaves read it and an Action writes the answer into it.
+SUCCESS, FAILURE, RUNNING = 'Success', 'Failure', 'Running'
+
+
+class Condition:
+    """Checks a fact on the blackboard: Success if check(bb) is true, else
+    Failure. name says what it checks."""
+
+    def __init__(self, name, check):
+        self.name, self.check = name, check
+
+    def tick(self, bb):
+        return SUCCESS if self.check(bb) else FAILURE
+
+
+class Action:
+    """Chooses a behavior: writes its state and speed into the blackboard and
+    returns Running (driving is never done)."""
+
+    def __init__(self, state, speed):
+        self.state, self.speed = state, speed
+
+    def tick(self, bb):
+        bb['state'], bb['speed'] = self.state, self.speed
+        return RUNNING
+
+
+class Sequence:
+    """Ticks its children in order and stops at the first one that does not
+    succeed."""
+
+    def __init__(self, *children):
+        self.children = children
+
+    def tick(self, bb):
+        for child in self.children:
+            status = child.tick(bb)
+            if status != SUCCESS:
+                return status
+        return SUCCESS
+
+
+class Fallback:
+    """Ticks its children in order and stops at the first one that does not
+    fail."""
+
+    def __init__(self, *children):
+        self.children = children
+
+    def tick(self, bb):
+        for child in self.children:
+            status = child.tick(bb)
+            if status != FAILURE:
+                return status
+        return FAILURE
 
 
 def nearest_ahead(path_xy, tracks, lookahead_s, clearance, dt=0.1):
@@ -83,30 +144,47 @@ def lidar_blocked(points_xy, path_xy, half_width=1.1, min_points=5):
     return float((s0[k] + t[i, k] * seg[k])[inside].min())
 
 
-class BehaviorFSM:
+class BehaviorTree:
     def __init__(self, target_speed=8.0, slow_speed=3.0, emergency_dist=8.0,
                  obstacle_dist=15.0, stop_dist=20.0, creep_speed=2.0):
         self.target_speed, self.slow_speed = target_speed, slow_speed
         self.emergency_dist, self.obstacle_dist = emergency_dist, obstacle_dist
         self.stop_dist, self.creep_speed = stop_dist, creep_speed
         self.state = BehaviorState.LANE_FOLLOW
+        self.root = None                                    # built on the first tick
 
-    def update(self, nearest_obstacle, light_state, dist_to_light, path_empty, path_seen):
-        """Next (state, target speed in m/s).
+    def tick(self, nearest_obstacle, light_state, dist_to_light, path_empty, path_seen):
+        """Given. Next (state, target speed in m/s).
 
         nearest_obstacle: m along the path to the first object ahead (inf if
         none). light_state: 'Red', 'Yellow', 'Green', ... dist_to_light: m to
         the light's stop line, positive while it is ahead, nan when no light
         affects the car. path_empty: the planner found no route.
-        path_seen: a path has been published at least once."""
+        path_seen: a path has been published at least once.
+
+        The blackboard the leaves read has the keys 'nearest_obstacle',
+        'light_state', 'dist_to_light' and 'path_empty', the arguments above."""
         if not path_seen:                                   # given: start-up
             self.state = BehaviorState.LANE_FOLLOW
             return self.state, self.creep_speed
-        # YOURS from here: the four states, the safer one wins.
-        # EMERGENCY_STOP (speed 0): no route (path_empty) or an object within
-        #   emergency_dist ahead. STOP (0): a red or yellow light whose stop
-        #   line is ahead and within stop_dist (dist_to_light between 0 and
-        #   stop_dist; nan means no light). OBSTACLE_AVOIDANCE (slow_speed): an
-        #   object within obstacle_dist. Otherwise LANE_FOLLOW (target_speed).
-        #   Set self.state and return (state, speed).
-        raise NotImplementedError('GP4 Task 4: BehaviorFSM.update')
+        if self.root is None:
+            self.root = self.build_tree()
+        bb = {'nearest_obstacle': nearest_obstacle, 'light_state': light_state,
+              'dist_to_light': dist_to_light, 'path_empty': path_empty}
+        self.root.tick(bb)                                  # an Action sets bb['state'], bb['speed']
+        self.state = bb['state']
+        return self.state, bb['speed']
+
+    def build_tree(self):
+        """Return the root of the tree."""
+        # YOURS: the root is a Fallback of four branches, safest first. Each of
+        # the first three is a Sequence(Condition, Action); the last is a
+        # bare Action. A condition reads the blackboard: lambda bb: ...
+        # 1. EMERGENCY_STOP (speed 0): no route (path_empty) or an object
+        #    within emergency_dist ahead.
+        # 2. STOP (0): a red or yellow light whose stop line is ahead and
+        #    within stop_dist (dist_to_light between 0 and stop_dist; nan
+        #    means no light).
+        # 3. OBSTACLE_AVOIDANCE (slow_speed): an object within obstacle_dist.
+        # 4. LANE_FOLLOW (target_speed): nothing else holds.
+        raise NotImplementedError('GP4 Task 4: BehaviorTree.build_tree')

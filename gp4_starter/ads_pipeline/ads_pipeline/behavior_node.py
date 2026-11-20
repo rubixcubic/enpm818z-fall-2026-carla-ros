@@ -22,7 +22,7 @@ within lidar_half_width of the path closer than front_offset + v^2 / (2
 a_brake) + lidar_margin, the state is EMERGENCY_STOP, speed 0, whatever the
 tracks say.
 
-Yours (behavior_core.py): BehaviorFSM.update.
+Yours (behavior_core.py): BehaviorTree.build_tree.
 """
 import math
 
@@ -38,7 +38,7 @@ from rclpy.node import Node
 from sensor_msgs.msg import PointCloud2
 from std_msgs.msg import String
 
-from ads_pipeline.behavior_core import (BehaviorFSM, ahead_by_class, lidar_blocked,
+from ads_pipeline.behavior_core import (BehaviorTree, ahead_by_class, lidar_blocked,
                                         stop_line_speed)
 from ads_pipeline.ground_truth import parse_light
 
@@ -61,9 +61,9 @@ class BehaviorNode(Node):
             return self.declare_parameter(name, default).value
 
         self.target_speed = p('target_speed', 8.0)
-        self.fsm = BehaviorFSM(self.target_speed, p('slow_speed', 3.0),
-                               p('emergency_distance', 8.0), p('obstacle_distance', 15.0),
-                               p('stop_distance', 20.0), p('creep_speed', 2.0))
+        self.tree = BehaviorTree(self.target_speed, p('slow_speed', 3.0),
+                                 p('emergency_distance', 8.0), p('obstacle_distance', 15.0),
+                                 p('stop_distance', 20.0), p('creep_speed', 2.0))
         self.lookahead_s, self.clearance = p('lookahead_s', 2.0), p('clearance', 2.0)
         self.ped_lookahead_s = p('ped_lookahead_s', 1.0)
         self.stop_brake, self.stop_margin = p('stop_brake', 2.0), p('stop_margin', 1.0)
@@ -122,8 +122,8 @@ class BehaviorNode(Node):
                    'cls': o.class_id} for o in msg.objects]
         ahead = ahead_by_class(path, tracks, self.lookahead_s, self.ped_lookahead_s,
                                self.clearance)
-        state, speed = self.fsm.update(ahead, self.light[0], self.light[2],
-                                       len(self.path) == 0, self.path_seen)
+        state, speed = self.tree.tick(ahead, self.light[0], self.light[2],
+                                      len(self.path) == 0, self.path_seen)
         name = state.name
         if name == 'STOP' and self.light[0] in ('Red', 'Yellow'):   # brake to the line
             speed = stop_line_speed(self.light[2], self.target_speed,
